@@ -28,9 +28,17 @@ import { RoleCard } from "./RoleCard";
  * Main App
  */
 export default function App() {
-  const [currentPage, setCurrentPage] = useState("canvas");
-  const [cards, setCards] = useState([]);
-  const [tracks, setTracks] = useState([]);
+  const [currentPage, setCurrentPage] = useState(() => {
+    return localStorage.getItem("org_currentPage") || "canvas";
+  });
+  const [cards, setCards] = useState(() => {
+    const saved = localStorage.getItem("org_cards");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [tracks, setTracks] = useState(() => {
+    const saved = localStorage.getItem("org_tracks");
+    return saved ? JSON.parse(saved) : [];
+  });
 
   const [draggingId, setDraggingId] = useState(null);
   const [draggingType, setDraggingType] = useState(null); // 'card' or 'track'
@@ -38,55 +46,77 @@ export default function App() {
   const [resizingSide, setResizingSide] = useState(null); // 'top', 'bottom', 'left', 'right'
 
   const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState("roles");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    const saved = localStorage.getItem("org_isSidebarOpen");
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem("org_activeTab") || "roles";
+  });
   const [viewMode, setViewMode] = useState("chart");
   const [toolMode, setToolMode] = useState("select");
-  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
+  const [transform, setTransform] = useState(() => {
+    const saved = localStorage.getItem("org_transform");
+    return saved ? JSON.parse(saved) : { x: 0, y: 0, scale: 1 };
+  });
   const [isPanning, setIsPanning] = useState(false);
   const [lastPanPoint, setLastPanPoint] = useState({ x: 0, y: 0 });
-  const [defaultCardSize, setDefaultCardSize] = useState("large");
+  const [defaultCardSize, setDefaultCardSize] = useState(() => {
+    return localStorage.getItem("org_defaultCardSize") || "large";
+  });
   const [isOverDeleteZone, setIsOverDeleteZone] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   // State to track library tab specifically
-  const [libraryEditorTab, setLibraryEditorTab] = useState("roles");
+  const [libraryEditorTab, setLibraryEditorTab] = useState(() => {
+    return localStorage.getItem("org_libraryEditorTab") || "roles";
+  });
 
-  const [roleTemplates, setRoleTemplates] = useState([
-    {
-      id: "r1",
-      role: "Chief Executive",
-      summary:
-        "Strategic vision and high-level decision making for the entire organization.",
-    },
-    {
-      id: "r2",
-      role: "Engineering Lead",
-      summary:
-        "Oversees technical implementation, roadmap, and core platform architecture.",
-    },
-    {
-      id: "r3",
-      role: "Product Designer",
-      summary:
-        "Ensures user-centricity through rigorous research and visual consistency.",
-    },
-  ]);
+  const [roleTemplates, setRoleTemplates] = useState(() => {
+    const saved = localStorage.getItem("org_role_templates");
+    return saved
+      ? JSON.parse(saved)
+      : [
+          {
+            id: "r1",
+            role: "Chief Executive",
+            summary:
+              "Strategic vision and high-level decision making for the entire organization.",
+          },
+          {
+            id: "r2",
+            role: "Engineering Lead",
+            summary:
+              "Oversees technical implementation, roadmap, and core platform architecture.",
+          },
+          {
+            id: "r3",
+            role: "Product Designer",
+            summary:
+              "Ensures user-centricity through rigorous research and visual consistency.",
+          },
+        ];
+  });
 
-  const [peopleTemplates, setPeopleTemplates] = useState([
-    {
-      id: "p1",
-      name: "Alex Rivera",
-      imageUrl:
-        "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=150&h=150",
-    },
-    {
-      id: "p2",
-      name: "Sarah Chen",
-      imageUrl:
-        "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=150&h=150",
-    },
-  ]);
+  const [peopleTemplates, setPeopleTemplates] = useState(() => {
+    const saved = localStorage.getItem("org_people_templates");
+    return saved
+      ? JSON.parse(saved)
+      : [
+          {
+            id: "p1",
+            name: "Alex Rivera",
+            imageUrl:
+              "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=150&h=150",
+          },
+          {
+            id: "p2",
+            name: "Sarah Chen",
+            imageUrl:
+              "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=150&h=150",
+          },
+        ];
+  });
 
   const GRID_SIZE = 20;
   const canvasRef = useRef(null);
@@ -337,6 +367,34 @@ export default function App() {
     transform,
     toolMode,
     currentPage,
+  ]);
+
+  // Persist state to localStorage
+  useEffect(() => {
+    localStorage.setItem("org_currentPage", currentPage);
+    localStorage.setItem("org_cards", JSON.stringify(cards));
+    localStorage.setItem("org_tracks", JSON.stringify(tracks));
+    localStorage.setItem("org_isSidebarOpen", JSON.stringify(isSidebarOpen));
+    localStorage.setItem("org_activeTab", activeTab);
+    localStorage.setItem("org_transform", JSON.stringify(transform));
+    localStorage.setItem("org_defaultCardSize", defaultCardSize);
+    localStorage.setItem("org_role_templates", JSON.stringify(roleTemplates));
+    localStorage.setItem(
+      "org_people_templates",
+      JSON.stringify(peopleTemplates),
+    );
+    localStorage.setItem("org_libraryEditorTab", libraryEditorTab);
+  }, [
+    currentPage,
+    cards,
+    tracks,
+    isSidebarOpen,
+    activeTab,
+    transform,
+    defaultCardSize,
+    roleTemplates,
+    peopleTemplates,
+    libraryEditorTab,
   ]);
 
   /**
