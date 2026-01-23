@@ -18,7 +18,7 @@ import {
   ArrowLeft,
   Pencil,
   Save,
-  Image as ImageIcon,
+  ImageIcon,
   Square,
 } from "lucide-react";
 import { Track } from "./Track";
@@ -48,6 +48,9 @@ export default function App() {
   const [defaultCardSize, setDefaultCardSize] = useState("large");
   const [isOverDeleteZone, setIsOverDeleteZone] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // State to track library tab specifically
+  const [libraryEditorTab, setLibraryEditorTab] = useState("roles");
 
   const [roleTemplates, setRoleTemplates] = useState([
     {
@@ -98,11 +101,11 @@ export default function App() {
   const isDuplicate =
     activeTab === "roles"
       ? roleTemplates.some(
-        (r) => r.role.toLowerCase() === searchQuery.trim().toLowerCase(),
-      )
+          (r) => r.role.toLowerCase() === searchQuery.trim().toLowerCase(),
+        )
       : peopleTemplates.some(
-        (p) => p.name.toLowerCase() === searchQuery.trim().toLowerCase(),
-      );
+          (p) => p.name.toLowerCase() === searchQuery.trim().toLowerCase(),
+        );
 
   const handleZoom = useCallback((delta, centerX, centerY) => {
     setTransform((prev) => {
@@ -228,15 +231,12 @@ export default function App() {
     if (resizingId) {
       const mouseX = e.clientX / transform.scale;
       const mouseY = e.clientY / transform.scale;
-
       setTracks((prev) =>
         prev.map((t) => {
           if (t.id !== resizingId) return t;
           let newT = { ...t };
-
           const gridX = Math.round(mouseX / GRID_SIZE) * GRID_SIZE;
           const gridY = Math.round(mouseY / GRID_SIZE) * GRID_SIZE;
-
           if (resizingSide === "right") newT.width = Math.max(100, gridX - t.x);
           if (resizingSide === "left") {
             const newWidth = t.width + (t.x - gridX);
@@ -259,27 +259,22 @@ export default function App() {
       );
       return;
     }
-
-    // Handle Dragging
     if (!draggingId) return;
-
     if (deleteZoneRef.current) {
       const dzRect = deleteZoneRef.current.getBoundingClientRect();
       setIsOverDeleteZone(
         e.clientX >= dzRect.left &&
-        e.clientX <= dzRect.right &&
-        e.clientY >= dzRect.top &&
-        e.clientY <= dzRect.bottom,
+          e.clientX <= dzRect.right &&
+          e.clientY >= dzRect.top &&
+          e.clientY <= dzRect.bottom,
       );
     }
-
     const newX =
       Math.round((e.clientX / transform.scale - offset.x) / GRID_SIZE) *
       GRID_SIZE;
     const newY =
       Math.round((e.clientY / transform.scale - offset.y) / GRID_SIZE) *
       GRID_SIZE;
-
     if (draggingType === "card") {
       setCards((prev) =>
         prev.map((c) => (c.id === draggingId ? { ...c, x: newX, y: newY } : c)),
@@ -348,7 +343,6 @@ export default function App() {
    * Library Management Page Component
    */
   const LibraryEditor = () => {
-    const [editorTab, setEditorTab] = useState("roles");
     const [editingId, setEditingId] = useState(null);
     const [editForm, setEditForm] = useState({});
 
@@ -376,7 +370,7 @@ export default function App() {
 
     const handleAddNew = () => {
       const id = `new-${Date.now()}`;
-      if (editorTab === "roles") {
+      if (libraryEditorTab === "roles") {
         const newRole = {
           id,
           role: "New Role Name",
@@ -419,15 +413,16 @@ export default function App() {
             onClick={handleAddNew}
             className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg transition-all font-bold text-xs"
           >
-            <Plus size={16} /> Add {editorTab === "roles" ? "Role" : "Person"}
+            <Plus size={16} />
+            {libraryEditorTab === "roles" ? "Add Role" : "Add Person"}
           </button>
         </header>
 
         <div className="flex-grow flex flex-col max-w-5xl mx-auto w-full p-8 overflow-hidden">
           <div className="flex gap-4 mb-8">
             <button
-              onClick={() => setEditorTab("roles")}
-              className={`flex-1 py-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${editorTab === "roles" ? "bg-blue-50 border-blue-600 text-blue-700 shadow-sm" : "bg-slate-50 border-transparent text-slate-400 hover:bg-slate-100"}`}
+              onClick={() => setLibraryEditorTab("roles")}
+              className={`flex-1 py-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${libraryEditorTab === "roles" ? "bg-blue-50 border-blue-600 text-blue-700 shadow-sm" : "bg-slate-50 border-transparent text-slate-400 hover:bg-slate-100"}`}
             >
               <Briefcase size={24} />
               <span className="text-sm font-bold uppercase tracking-widest">
@@ -435,8 +430,8 @@ export default function App() {
               </span>
             </button>
             <button
-              onClick={() => setEditorTab("people")}
-              className={`flex-1 py-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${editorTab === "people" ? "bg-blue-50 border-blue-600 text-blue-700 shadow-sm" : "bg-slate-50 border-transparent text-slate-400 hover:bg-slate-100"}`}
+              onClick={() => setLibraryEditorTab("people")}
+              className={`flex-1 py-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${libraryEditorTab === "people" ? "bg-blue-50 border-blue-600 text-blue-700 shadow-sm" : "bg-slate-50 border-transparent text-slate-400 hover:bg-slate-100"}`}
             >
               <Users size={24} />
               <span className="text-sm font-bold uppercase tracking-widest">
@@ -446,7 +441,7 @@ export default function App() {
           </div>
 
           <div className="flex-grow overflow-y-auto pr-4 space-y-4 pb-12">
-            {editorTab === "roles" ? (
+            {libraryEditorTab === "roles" ? (
               <div className="space-y-4">
                 {roleTemplates.map((role) => (
                   <div
@@ -682,7 +677,6 @@ export default function App() {
               }}
             >
               <div className="relative w-full h-full pointer-events-auto">
-                {/* TRACKS LAYER (Always underneath) */}
                 {tracks.map((track) => (
                   <Track
                     key={track.id}
@@ -700,8 +694,6 @@ export default function App() {
                     }
                   />
                 ))}
-
-                {/* CARDS LAYER */}
                 {cards.map((card) => (
                   <RoleCard
                     key={card.id}
@@ -737,10 +729,10 @@ export default function App() {
                         prev.map((c) =>
                           c.id === rid
                             ? {
-                              ...c,
-                              status: "unassigned",
-                              assignedPerson: null,
-                            }
+                                ...c,
+                                status: "unassigned",
+                                assignedPerson: null,
+                              }
                             : c,
                         ),
                       )
@@ -751,7 +743,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* MODE SWITCHER */}
             <div className="absolute top-6 left-1/2 -translate-x-1/2 z-40">
               <div className="flex bg-white/80 backdrop-blur-md p-1 rounded-2xl border border-slate-200 shadow-lg">
                 <button
@@ -769,7 +760,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* ZOOM CONTROLS */}
             <div className="absolute bottom-8 right-8 z-40">
               <div className="bg-white border border-slate-200 rounded-2xl shadow-xl flex items-center p-1 gap-1">
                 <button
@@ -811,7 +801,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* TOOLBAR */}
             <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-40">
               <div
                 ref={deleteZoneRef}
@@ -967,45 +956,51 @@ export default function App() {
                 <div className="flex-grow p-6 pt-0 space-y-3 overflow-y-auto">
                   {activeTab === "roles"
                     ? filteredRoles.map((r) => (
-                      <div
-                        key={r.id}
-                        onMouseDown={(e) =>
-                          handleSidebarDragStart(e, r, "role")
-                        }
-                        className="group relative p-4 border border-slate-100 bg-slate-50 rounded-xl cursor-grab hover:border-blue-200 hover:bg-blue-50 transition-all"
-                      >
-                        <p className="text-xs font-bold text-slate-700">
-                          {r.role}
-                        </p>
-                        <p className="text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-tight">
-                          Role Template
-                        </p>
-                      </div>
-                    ))
-                    : filteredPeople.map((p) => (
-                      <div
-                        key={p.id}
-                        draggable
-                        onDragStart={(e) =>
-                          handleSidebarDragStart(e, p, "person")
-                        }
-                        className="group relative p-3 border border-slate-100 bg-white rounded-xl cursor-grab hover:border-green-200 hover:bg-green-50 flex items-center gap-3 transition-all"
-                      >
-                        <img
-                          src={p.imageUrl}
-                          className="w-8 h-8 rounded-full shadow-sm"
-                          alt=""
-                        />
-                        <div>
+                        <div
+                          key={r.id}
+                          onMouseDown={(e) =>
+                            handleSidebarDragStart(e, r, "role")
+                          }
+                          className="group relative p-4 border border-slate-100 bg-slate-50 rounded-xl cursor-grab hover:border-blue-200 hover:bg-blue-50 transition-all"
+                          style={{
+                            userSelect: "none",
+                          }}
+                        >
                           <p className="text-xs font-bold text-slate-700">
-                            {p.name}
+                            {r.role}
                           </p>
-                          <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tight">
-                            Person
+                          <p className="text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-tight">
+                            Role Template
                           </p>
                         </div>
-                      </div>
-                    ))}
+                      ))
+                    : filteredPeople.map((p) => (
+                        <div
+                          key={p.id}
+                          draggable
+                          onDragStart={(e) =>
+                            handleSidebarDragStart(e, p, "person")
+                          }
+                          className="group relative p-3 border border-slate-100 bg-white rounded-xl cursor-grab hover:border-green-200 hover:bg-green-50 flex items-center gap-3 transition-all"
+                          style={{
+                            userSelect: "none",
+                          }}
+                        >
+                          <img
+                            src={p.imageUrl}
+                            className="w-8 h-8 rounded-full shadow-sm"
+                            alt=""
+                          />
+                          <div>
+                            <p className="text-xs font-bold text-slate-700">
+                              {p.name}
+                            </p>
+                            <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tight">
+                              Person
+                            </p>
+                          </div>
+                        </div>
+                      ))}
                 </div>
               </div>
             )}
