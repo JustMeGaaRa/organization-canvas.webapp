@@ -842,6 +842,11 @@ export default function App() {
             onMouseDown={handleMouseDown}
             onWheel={handleWheel}
             className={`flex-grow relative bg-slate-100 overflow-hidden outline-none ${toolMode === "pan" ? "cursor-grab active:cursor-grabbing" : "cursor-default"}`}
+            style={{
+              backgroundImage: `radial-gradient(#cbd5e1 ${1.5 * transform.scale}px, transparent ${1.5 * transform.scale}px)`,
+              backgroundSize: `${20 * transform.scale}px ${20 * transform.scale}px`,
+              backgroundPosition: `${transform.x}px ${transform.y}px`,
+            }}
           >
             {/* Organization Name Header */}
             <div className="absolute top-6 left-6 z-50">
@@ -924,9 +929,6 @@ export default function App() {
               style={{
                 transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
                 transformOrigin: "0 0",
-                backgroundImage:
-                  "radial-gradient(#cbd5e1 1.5px, transparent 1.5px)",
-                backgroundSize: "20px 20px",
               }}
             >
               <div className="relative w-full h-full pointer-events-auto">
