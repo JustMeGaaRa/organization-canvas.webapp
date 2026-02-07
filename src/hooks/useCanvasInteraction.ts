@@ -284,6 +284,22 @@ export function useCanvasInteraction(
     }
   };
 
+  const startDragExternal = (
+    e: React.MouseEvent,
+    id: string,
+    type: "card" | "track",
+    initialX: number,
+    initialY: number,
+  ) => {
+    setDraggingId(id);
+    setDraggingType(type);
+    const newOffset = {
+      x: e.clientX / transform.scale - initialX,
+      y: e.clientY / transform.scale - initialY,
+    };
+    setOffset(newOffset);
+  };
+
   return {
     draggingId,
     draggingType,
@@ -297,5 +313,6 @@ export function useCanvasInteraction(
     handleMouseDown,
     handleWheel,
     handleZoom,
+    startDragExternal,
   };
 }

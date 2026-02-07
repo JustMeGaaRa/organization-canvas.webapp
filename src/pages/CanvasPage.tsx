@@ -62,6 +62,7 @@ export const CanvasPage = ({
     handleMouseDown,
     handleWheel,
     handleZoom,
+    startDragExternal,
   } = useCanvasInteraction(
     transform,
     setTransform,
@@ -290,8 +291,7 @@ export const CanvasPage = ({
 
           setCards((prev) => [...prev, newCard]);
 
-          // NOTE: Automatic drag start on creation is skipped due to hook limitations
-          // in this refactor. User must click again to drag.
+          startDragExternal(e, id, "card", initialX, initialY);
         }}
       />
     </div>
