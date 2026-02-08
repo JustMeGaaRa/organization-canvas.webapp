@@ -24,6 +24,8 @@ interface CanvasPageProps {
   setRoleTemplates: (roles: RoleTemplate[]) => void;
   setPeopleTemplates: (people: Person[]) => void;
   onNavigateToLibrary: () => void;
+  onDeleteRoleTemplate?: (id: string) => void;
+  onDeletePersonTemplate?: (id: string) => void;
 }
 
 export const CanvasPage = ({
@@ -39,6 +41,8 @@ export const CanvasPage = ({
   setRoleTemplates,
   setPeopleTemplates,
   onNavigateToLibrary,
+  onDeleteRoleTemplate,
+  onDeletePersonTemplate,
 }: CanvasPageProps) => {
   const canvasRef = useRef<HTMLDivElement>(null);
   const deleteZoneRef = useRef<HTMLDivElement>(null);
@@ -248,6 +252,8 @@ export const CanvasPage = ({
             ...peopleTemplates,
           ]);
         }}
+        onDeleteRoleTemplate={onDeleteRoleTemplate}
+        onDeletePersonTemplate={onDeletePersonTemplate}
         onRoleDragStart={(e, roleTemplate) => {
           // Create the card
           if (!canvasRef.current) return;

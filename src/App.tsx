@@ -41,6 +41,12 @@ function AppContent({
           peopleTemplates={peopleTemplates}
           setRoleTemplates={setRoleTemplates}
           setPeopleTemplates={setPeopleTemplates}
+          onDeleteRoleTemplate={(id) =>
+            setRoleTemplates((prev) => prev.filter((r) => r.id !== id))
+          }
+          onDeletePersonTemplate={(id) =>
+            setPeopleTemplates((prev) => prev.filter((p) => p.id !== id))
+          }
           onNavigateToLibrary={() => setCurrentPage("library-editor")}
         />
       ) : (

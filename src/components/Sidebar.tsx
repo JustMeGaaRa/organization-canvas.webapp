@@ -8,6 +8,7 @@ import {
   Plus,
   AlertCircle,
   ChevronLeft,
+  Trash2,
 } from "lucide-react";
 import type { RoleTemplate, Person } from "../types";
 
@@ -19,6 +20,8 @@ interface SidebarProps {
   peopleTemplates: Person[];
   onAddRoleTemplate: (name: string) => void;
   onAddPersonTemplate: (name: string) => void;
+  onDeleteRoleTemplate?: (id: string) => void;
+  onDeletePersonTemplate?: (id: string) => void;
   onRoleDragStart: (e: React.MouseEvent, role: RoleTemplate) => void;
 }
 
@@ -30,6 +33,8 @@ export const Sidebar = ({
   peopleTemplates,
   onAddRoleTemplate,
   onAddPersonTemplate,
+  onDeleteRoleTemplate,
+  onDeletePersonTemplate,
   onRoleDragStart,
 }: SidebarProps) => {
   const [activeTab, setActiveTab] = useState<"roles" | "people">("roles");
@@ -92,24 +97,6 @@ export const Sidebar = ({
           </button>
         </div>
 
-        <div className="px-6 py-4">
-          <button
-            onClick={onNavigateToLibrary}
-            className="w-full flex items-center justify-between px-4 py-3 bg-slate-900 text-white rounded-2xl hover:bg-slate-800 transition-all shadow-md group"
-          >
-            <div className="flex items-center gap-3">
-              <Settings2 size={16} className="text-blue-400" />
-              <span className="text-[10px] font-bold uppercase tracking-widest">
-                Manage Assets
-              </span>
-            </div>
-            <ChevronRight
-              size={14}
-              className="group-hover:translate-x-1 transition-transform"
-            />
-          </button>
-        </div>
-
         <div className="flex px-6 pt-2 gap-4 border-b border-slate-50">
           <button
             onClick={() => setActiveTab("roles")}
@@ -164,6 +151,19 @@ export const Sidebar = ({
                   <p className="text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-tight">
                     Role Template
                   </p>
+                  {onDeleteRoleTemplate && (
+                    <button
+                      onMouseDown={(e) => e.stopPropagation()} // Prevent drag start
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteRoleTemplate(r.id);
+                      }}
+                      className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-100 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                      title="Delete Template"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </div>
               ))
             : filteredPeople.map((p) => (
@@ -185,8 +185,43 @@ export const Sidebar = ({
                       Person
                     </p>
                   </div>
+                  {onDeletePersonTemplate && (
+                    <button
+                      onMouseDown={(e) => e.stopPropagation()} // Prevent drag start? Draggable works via dragstart.
+                      // For draggable element, buttons inside might need preventDefault on mousedown or dragstart stop propagation.
+                      // Usually click works fine if we don't drag.
+                      onClick={(e) => {
+                        e.stopPropagation(); // prevent drag selection if any
+                        onDeletePersonTemplate(p.id);
+                      }}
+                      className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-100 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                      title="Delete Person"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </div>
               ))}
+        </div>
+        <div className="p-4 border-t border-slate-100 mt-auto">
+          <button
+            onClick={onNavigateToLibrary}
+            className="w-full flex items-center justify-between px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl hover:border-blue-300 hover:text-blue-600 transition-all shadow-sm group"
+          >
+            <div className="flex items-center gap-3">
+              <Settings2
+                size={16}
+                className="text-slate-400 group-hover:text-blue-500"
+              />
+              <span className="text-[10px] font-bold uppercase tracking-widest">
+                Manage Assets
+              </span>
+            </div>
+            <ChevronRight
+              size={14}
+              className="text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all"
+            />
+          </button>
         </div>
       </div>
     </aside>
