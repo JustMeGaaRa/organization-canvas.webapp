@@ -68,11 +68,11 @@ export const CanvasPage = ({
   const [historySteps, setHistorySteps] = useState<HistoryStep[]>([]);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
-  const [viewMode, setViewMode] = useState<"structure" | "chart">("chart");
+  const [viewMode, setViewMode] = useState<"structure" | "chart" | "connection">("chart");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Canvas Data & Interaction Hooks
-  const { cards, setCards, tracks, setTracks, transform, setTransform } =
+  const { cards, setCards, tracks, setTracks, connections, setConnections, transform, setTransform } =
     useCanvasData(currentOrgId);
 
   const {
@@ -91,6 +91,10 @@ export const CanvasPage = ({
     handleZoom,
     startDragExternal,
     setSelectedIds,
+    connectingId,
+    connectingPoint,
+    hoveredCardId,
+    setHoveredCardId,
   } = useCanvasInteraction(
     transform,
     setTransform,
@@ -98,6 +102,9 @@ export const CanvasPage = ({
     setCards,
     tracks,
     setTracks,
+    connections,
+    setConnections,
+    viewMode,
     toolMode,
     canvasRef,
     deleteZoneRef,
@@ -268,6 +275,55 @@ export const CanvasPage = ({
     }
   };
 
+
+
+  // calculate highlighted set
+  const { highlightedSet, isDimmedMode } = (() => {
+    // Only active in connection mode
+    if (viewMode !== "connection") {
+      return { 
+        highlightedSet: { cards: new Set<string>(), connections: new Set<string>() }, 
+        isDimmedMode: false 
+      };
+    }
+
+    // Determine source IDs: Hover takes precedence over Selection
+    const sourceIds: string[] = hoveredCardId ? [hoveredCardId] : selectedIds;
+
+    if (sourceIds.length === 0) {
+      return { 
+        highlightedSet: { cards: new Set<string>(), connections: new Set<string>() }, 
+        isDimmedMode: false 
+      };
+    }
+
+    const visitedCards = new Set<string>();
+    const visitedConnections = new Set<string>();
+    const queue = [...sourceIds];
+    
+    sourceIds.forEach(id => visitedCards.add(id));
+
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      
+      // Find all connections involving this card
+      connections.forEach(conn => {
+        if (conn.from === currentId || conn.to === currentId) {
+          visitedConnections.add(conn.id);
+          const neighborId = conn.from === currentId ? conn.to : conn.from;
+          if (!visitedCards.has(neighborId)) {
+             visitedCards.add(neighborId);
+             queue.push(neighborId);
+          }
+        }
+      });
+    }
+    return { 
+      highlightedSet: { cards: visitedCards, connections: visitedConnections }, 
+      isDimmedMode: true 
+    };
+  })();
+
   const handlePrevStep = () => {
     if (currentStepIndex > 0) {
       const newIndex = currentStepIndex - 1;
@@ -337,6 +393,46 @@ export const CanvasPage = ({
                 animate={toolMode === "present"}
               />
             ))}
+            {viewMode === "connection" && (
+              <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-visible">
+                {connections.map((conn) => {
+                  const from = cards.find((c) => c.id === conn.from);
+                  const to = cards.find((c) => c.id === conn.to);
+                  if (!from || !to) return null;
+                  const isHighlighted = highlightedSet.connections.has(conn.id);
+                  return (
+                    <line
+                      key={conn.id}
+                      x1={from.x + (from.size === "small" ? 112 : 128)}
+                      y1={from.y + (from.size === "small" ? 60 : 128)}
+                      x2={to.x + (to.size === "small" ? 112 : 128)}
+                      y2={to.y + (to.size === "small" ? 60 : 128)}
+                      stroke={isHighlighted ? "#4ade80" : "#94a3b8"}
+                      strokeWidth={isHighlighted ? "4" : "2"}
+                      opacity={isHighlighted ? 1 : isDimmedMode ? 0.1 : 0.6}
+                      className="transition-all duration-300"
+                    />
+                  );
+                })}
+                {connectingId && connectingPoint && (
+                  (() => {
+                    const from = cards.find((c) => c.id === connectingId);
+                    if (!from) return null;
+                    return (
+                      <line
+                        x1={from.x + (from.size === "small" ? 112 : 128)}
+                        y1={from.y + (from.size === "small" ? 60 : 128)}
+                        x2={connectingPoint.x}
+                        y2={connectingPoint.y}
+                        stroke="#3b82f6"
+                        strokeWidth="2"
+                        strokeDasharray="5,5"
+                      />
+                    );
+                  })()
+                )}
+              </svg>
+            )}
             {cards.map((card) => (
               <RoleCard
                 key={card.id}
@@ -344,6 +440,9 @@ export const CanvasPage = ({
                 viewMode={viewMode}
                 isDragging={draggingId === card.id && draggingType === "card"}
                 isSelected={selectedIds.includes(card.id)}
+                isHighlighted={highlightedSet.cards.has(card.id)}
+                isDimmed={isDimmedMode && !highlightedSet.cards.has(card.id)}
+                onHover={setHoveredCardId}
                 isOverDeleteZone={
                   isOverDeleteZone &&
                   draggingId === card.id &&

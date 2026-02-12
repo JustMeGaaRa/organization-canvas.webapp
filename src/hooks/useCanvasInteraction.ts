@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import type { Role, TrackData, Transform, Point } from "../types";
+import type { Role, TrackData, Transform, Point, Connection, ViewMode } from "../types";
 
 const GRID_SIZE = 20;
 
@@ -12,10 +12,18 @@ export function useCanvasInteraction(
   setTracks: (
     tracks: TrackData[] | ((prev: TrackData[]) => TrackData[]),
   ) => void,
+  connections: Connection[],
+  setConnections: (
+    connections: Connection[] | ((prev: Connection[]) => Connection[]),
+  ) => void,
+  viewMode: ViewMode,
   toolMode: "select" | "pan" | "track" | "record" | "present",
   canvasRef: React.RefObject<HTMLDivElement | null>,
   deleteZoneRef: React.RefObject<HTMLDivElement | null>,
 ) {
+  const [connectingId, setConnectingId] = useState<string | null>(null);
+  const [connectingPoint, setConnectingPoint] = useState<Point | null>(null);
+  const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [draggingType, setDraggingType] = useState<
     "card" | "track" | "track-create" | null
@@ -46,6 +54,8 @@ export function useCanvasInteraction(
   const isOverDeleteZoneRef = useRef(isOverDeleteZone);
   const cardsRef = useRef(cards);
   const tracksRef = useRef(tracks);
+  const connectionsRef = useRef(connections);
+  const connectingIdRef = useRef(connectingId);
   const selectedIdsRef = useRef(selectedIds);
   const clipboardRef = useRef<{ type: "card" | "track"; data: Role | TrackData }[]>([]);
 
@@ -84,6 +94,12 @@ export function useCanvasInteraction(
     tracksRef.current = tracks;
   }, [tracks]);
   useEffect(() => {
+    connectionsRef.current = connections;
+  }, [connections]);
+  useEffect(() => {
+    connectingIdRef.current = connectingId;
+  }, [connectingId]);
+  useEffect(() => {
     selectedIdsRef.current = selectedIds;
   }, [selectedIds]);
 
@@ -103,6 +119,19 @@ export function useCanvasInteraction(
   );
 
   const handleStartDragCard = (e: React.MouseEvent, cardId: string) => {
+    if (viewMode === "connection") {
+      e.stopPropagation();
+      setConnectingId(cardId);
+      const card = cards.find((c) => c.id === cardId);
+      if (card) {
+        setConnectingPoint({
+          x: card.x + (card.size === "small" ? 112 : 128), // Center
+          y: card.y + (card.size === "small" ? 60 : 128), // Center
+        });
+      }
+      return;
+    }
+
     if (toolMode !== "select" || e.button !== 0) return;
     e.stopPropagation();
 
@@ -227,6 +256,15 @@ export function useCanvasInteraction(
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
       const isPanning = isPanningRef.current;
+      const connectingId = connectingIdRef.current;
+      const transform = transformRef.current;
+
+      if (connectingId) {
+        const x = (e.clientX - transform.x) / transform.scale;
+        const y = (e.clientY - transform.y) / transform.scale;
+        setConnectingPoint({ x, y });
+        return;
+      }
 
       // Handle Panning
       if (isPanning) {
@@ -299,7 +337,7 @@ export function useCanvasInteraction(
 
       const offset = offsetRef.current;
       const draggingType = draggingTypeRef.current;
-      const transform = transformRef.current;
+      // transform is already declared at top
 
       const newMouseX =
         Math.round((e.clientX / transform.scale - offset.x) / GRID_SIZE) *
@@ -414,7 +452,7 @@ export function useCanvasInteraction(
     [setCards, setTracks, setTransform, deleteZoneRef],
   );
 
-  const handleMouseUp = useCallback(() => {
+  const handleMouseUp = useCallback((e: MouseEvent) => {
     const draggingId = draggingIdRef.current;
     const draggingType = draggingTypeRef.current;
     const isOverDeleteZone = isOverDeleteZoneRef.current;
@@ -447,14 +485,59 @@ export function useCanvasInteraction(
     initialPositionsRef.current = {}; // Clear initial positions
 
     // Reset local refs just in case? Not strictly needed as effect will sync nulls
-  }, [setCards, setTracks]);
+    // Handle Connection Creation
+    const connectingId = connectingIdRef.current;
+    if (connectingId && e) {
+      const transform = transformRef.current;
+      const mouseX = (e.clientX - transform.x) / transform.scale;
+      const mouseY = (e.clientY - transform.y) / transform.scale;
+
+      // Find target card
+      const cards = cardsRef.current;
+      const targetCard = cards.find((c) => {
+        if (c.id === connectingId) return false;
+        
+        // Approximate hit testing
+        const width = c.size === "small" ? 224 : 256;
+        const height = c.size === "small" ? 120 : 256;
+        
+        return (
+          mouseX >= c.x &&
+          mouseX <= c.x + width &&
+          mouseY >= c.y &&
+          mouseY <= c.y + height
+        );
+      });
+
+      if (targetCard) {
+        // Create connection
+        const existingConnections = connectionsRef.current;
+        const alreadyConnected = existingConnections.some(
+          (conn) =>
+            (conn.from === connectingId && conn.to === targetCard.id) ||
+            (conn.from === targetCard.id && conn.to === connectingId),
+        );
+
+        if (!alreadyConnected) {
+          const newConnection: Connection = {
+            id: `conn-${Date.now()}`,
+            from: connectingId,
+            to: targetCard.id,
+          };
+          setConnections((prev) => [...prev, newConnection]);
+        }
+      }
+    }
+    setConnectingId(null);
+    setConnectingPoint(null);
+  }, [setCards, setTracks, setConnections]);
 
   useEffect(() => {
     window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("mouseup", handleMouseUp as EventListener);
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("mouseup", handleMouseUp as EventListener);
     };
   }, [handleMouseMove, handleMouseUp]);
 
@@ -634,5 +717,9 @@ export function useCanvasInteraction(
     handleZoom,
     startDragExternal,
     setSelectedIds,
+    connectingId,
+    connectingPoint,
+    hoveredCardId,
+    setHoveredCardId,
   };
 }

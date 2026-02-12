@@ -43,3 +43,11 @@ export interface Point {
   x: number;
   y: number;
 }
+
+export interface Connection {
+  id: string;
+  from: string;
+  to: string;
+}
+
+export type ViewMode = "structure" | "chart" | "connection";

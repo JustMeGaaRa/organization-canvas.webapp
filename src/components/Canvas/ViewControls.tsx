@@ -1,8 +1,8 @@
 import { Briefcase, User } from "lucide-react";
 
 interface ViewControlsProps {
-  viewMode: "structure" | "chart";
-  setViewMode: (mode: "structure" | "chart") => void;
+  viewMode: "structure" | "chart" | "connection";
+  setViewMode: (mode: "structure" | "chart" | "connection") => void;
 }
 
 export const ViewControls = ({ viewMode, setViewMode }: ViewControlsProps) => {
@@ -31,6 +31,19 @@ export const ViewControls = ({ viewMode, setViewMode }: ViewControlsProps) => {
           }`}
         >
           <User size={14} /> <span>Chart</span>
+        </button>
+        <button
+          onClick={() => setViewMode("connection")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-bold uppercase transition-all ${
+            viewMode === "connection"
+              ? "bg-slate-900 text-white shadow-md"
+              : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+          }`}
+        >
+          <div className="rotate-45">
+            <User size={14} />
+          </div>{" "}
+          <span>Connection</span>
         </button>
       </div>
     </div>

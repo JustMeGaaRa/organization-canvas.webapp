@@ -21,6 +21,10 @@ export const RoleCard: FC<{
   onToggleSize: (roleId: string) => void;
   isOverDeleteZone: boolean;
   isSelected?: boolean;
+  isHighlighted?: boolean;
+  isDimmed?: boolean;
+  onHover?: (id: string | null) => void;
+  viewMode: "chart" | "structure" | "connection";
   viewMode: "chart" | "structure";
   animate?: boolean;
 }> = ({
@@ -33,6 +37,9 @@ export const RoleCard: FC<{
   onToggleSize,
   isOverDeleteZone,
   isSelected,
+  isHighlighted,
+  isDimmed,
+  onHover,
   viewMode,
   animate = false,
 }) => {
@@ -47,7 +54,7 @@ export const RoleCard: FC<{
     x,
     y,
   } = roleData;
-  const isChart = viewMode === "chart";
+  const isChart = viewMode === "chart" || viewMode === "connection";
   const isSmall = size === "small";
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -75,6 +82,8 @@ export const RoleCard: FC<{
   return (
     <div
       onMouseDown={onMouseDown}
+      onMouseEnter={() => onHover?.(roleData.id)}
+      onMouseLeave={() => onHover?.(null)}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -85,8 +94,9 @@ export const RoleCard: FC<{
       } ${
         isDragging
           ? `shadow-2xl ring-2 ${isOverDeleteZone ? "ring-red-500 scale-90 opacity-50" : "ring-blue-400"} z-50`
-          : `shadow-sm hover:shadow-md z-40 ${isSelected ? "ring-2 ring-blue-500 border-transparent" : ""}`
-      } ${isOver ? "ring-4 ring-green-400 border-transparent bg-green-50" : !isDragging && !isSelected ? "border-slate-200" : ""}`}
+          : `shadow-sm hover:shadow-md z-40 ${isSelected ? "ring-2 ring-blue-500 border-transparent" : ""} ${isHighlighted ? "ring-4 ring-green-400 shadow-[0_0_20px_rgba(74,222,128,0.6)] border-green-500" : ""}`
+      } ${isOver ? "ring-4 ring-green-400 border-transparent bg-green-50" : !isDragging && !isSelected && !isHighlighted ? "border-slate-200" : ""}
+      ${isDimmed ? "opacity-30 grayscale saturate-0" : "opacity-100"}`}
       style={{ left: `${x}px`, top: `${y}px`, transformOrigin: "top left" }}
     >
       <div className="flex justify-between items-start mb-2 relative">

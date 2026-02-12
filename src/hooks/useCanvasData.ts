@@ -33,12 +33,18 @@ export function useCanvasData(currentOrgId: string) {
     `org_${currentOrgId}_transform`,
     { x: 0, y: 0, scale: 1 },
   );
+  const [connections, setConnections] = usePersistedState<import("../types").Connection[]>(
+    `org_${currentOrgId}_connections`,
+    [],
+  );
 
   return {
     cards,
     setCards,
     tracks,
     setTracks,
+    connections,
+    setConnections,
     transform,
     setTransform,
   };
