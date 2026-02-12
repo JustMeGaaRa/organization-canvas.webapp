@@ -306,32 +306,69 @@ export const CanvasPage = ({
       };
     }
 
-    const visitedCards = new Set<string>();
-    const visitedConnections = new Set<string>();
-    const queue = [...sourceIds];
-    
-    sourceIds.forEach(id => visitedCards.add(id));
+    const descendants = new Set<string>();
+    const ancestors = new Set<string>();
+    const highlightedConnections = new Set<string>();
 
-    while (queue.length > 0) {
-      const currentId = queue.shift()!;
-      
-      // Find all connections involving this card
-      connections.forEach(conn => {
-        if (conn.from === currentId || conn.to === currentId) {
-          visitedConnections.add(conn.id);
-          const neighborId = conn.from === currentId ? conn.to : conn.from;
-          if (!visitedCards.has(neighborId)) {
-             visitedCards.add(neighborId);
-             queue.push(neighborId);
+    sourceIds.forEach(id => {
+      // Find Descendants (Downstream)
+      const queueDesc = [id];
+      // We don't add source to descendants/ancestors sets to avoid double counting, 
+      // but we need it in visited for the loop? 
+      // Actually, HighlightedSet should include Source.
+      descendants.add(id);
+
+      while (queueDesc.length > 0) {
+        const current = queueDesc.shift()!;
+        connections.forEach(conn => {
+          if (conn.from === current) {
+            highlightedConnections.add(conn.id);
+            if (!descendants.has(conn.to)) {
+              descendants.add(conn.to);
+              queueDesc.push(conn.to);
+            }
           }
-        }
-      });
-    }
+        });
+      }
+
+      // Find Ancestors (Upstream) - Only direct path to top? 
+      // "Only direct ancestors up to the top"
+      // BFS upstream
+      const queueAnc = [id];
+      ancestors.add(id);
+      
+      while (queueAnc.length > 0) {
+        const current = queueAnc.shift()!;
+        connections.forEach(conn => {
+          if (conn.to === current) {
+            highlightedConnections.add(conn.id);
+            if (!ancestors.has(conn.from)) {
+               ancestors.add(conn.from);
+               queueAnc.push(conn.from);
+            }
+          }
+        });
+      }
+    });
+    
+    // Combine sets
+    const allCards = new Set([...descendants, ...ancestors]);
+
     return { 
-      highlightedSet: { cards: visitedCards, connections: visitedConnections }, 
+      highlightedSet: { cards: allCards, connections: highlightedConnections }, 
       isDimmedMode: true 
     };
   })();
+
+  const handleDeleteConnection = (connId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Allow deleting with Alt+Click or just Click?
+    // User asked "Provide ability to delete".
+    // Let's require Alt key to avoid accidental deletes if lines are clickable.
+    if (e.altKey) {
+        setConnections(connections.filter(c => c.id !== connId));
+    }
+  };
 
   const handlePrevStep = () => {
     if (currentStepIndex > 0) {
@@ -410,17 +447,32 @@ export const CanvasPage = ({
                   if (!from || !to) return null;
                   const isHighlighted = highlightedSet.connections.has(conn.id);
                   return (
-                    <line
-                      key={conn.id}
-                      x1={from.x + (from.size === "small" ? 112 : 128)}
-                      y1={from.y + (from.size === "small" ? 60 : 128)}
-                      x2={to.x + (to.size === "small" ? 112 : 128)}
-                      y2={to.y + (to.size === "small" ? 60 : 128)}
-                      stroke={isHighlighted ? "#4ade80" : "#94a3b8"}
-                      strokeWidth={isHighlighted ? "4" : "2"}
-                      opacity={isHighlighted ? 1 : isDimmedMode ? 0.1 : 0.6}
-                      className="transition-all duration-300"
-                    />
+                    <g key={conn.id}>
+                      <line
+                        x1={from.x + (from.size === "small" ? 112 : 128)}
+                        y1={from.y + (from.size === "small" ? 60 : 128)}
+                        x2={to.x + (to.size === "small" ? 112 : 128)}
+                        y2={to.y + (to.size === "small" ? 60 : 128)}
+                        stroke={isHighlighted ? "#4ade80" : "#94a3b8"}
+                        strokeWidth={isHighlighted ? "4" : "2"}
+                        opacity={isHighlighted ? 1 : isDimmedMode ? 0.1 : 0.6}
+                        className={`transition-all duration-300 ${viewMode === "connection" ? "pointer-events-auto cursor-pointer hover:stroke-red-400" : ""}`}
+                        onClick={(e) => handleDeleteConnection(conn.id, e)}
+                      />
+                      {/* Hit area for easier clicking */}
+                      <line
+                        x1={from.x + (from.size === "small" ? 112 : 128)}
+                        y1={from.y + (from.size === "small" ? 60 : 128)}
+                        x2={to.x + (to.size === "small" ? 112 : 128)}
+                        y2={to.y + (to.size === "small" ? 60 : 128)}
+                        stroke="transparent"
+                        strokeWidth="12"
+                        className="pointer-events-auto cursor-pointer"
+                        onClick={(e) => handleDeleteConnection(conn.id, e)}
+                      >
+                        <title>Alt+Click to Delete Connection</title>
+                      </line>
+                    </g>
                   );
                 })}
                 {connectingId && connectingPoint && (
