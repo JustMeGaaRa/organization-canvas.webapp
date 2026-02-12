@@ -22,6 +22,7 @@ export const RoleCard: FC<{
   isOverDeleteZone: boolean;
   isSelected?: boolean;
   viewMode: "chart" | "structure";
+  animate?: boolean;
 }> = ({
   roleData,
   isDragging,
@@ -33,6 +34,7 @@ export const RoleCard: FC<{
   isOverDeleteZone,
   isSelected,
   viewMode,
+  animate = false,
 }) => {
   const [isOver, setIsOver] = useState(false);
 
@@ -76,7 +78,11 @@ export const RoleCard: FC<{
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`absolute ${cardWidth} ${cardHeight} border bg-white p-5 rounded-2xl flex flex-col transition-shadow select-none cursor-grab active:cursor-grabbing ${
+      className={`absolute ${cardWidth} ${cardHeight} border bg-white p-5 rounded-2xl flex flex-col select-none cursor-grab active:cursor-grabbing ${
+        animate
+          ? "transition-[top,left,width,height,box-shadow] duration-500 ease-in-out"
+          : "transition-shadow"
+      } ${
         isDragging
           ? `shadow-2xl ring-2 ${isOverDeleteZone ? "ring-red-500 scale-90 opacity-50" : "ring-blue-400"} z-50`
           : `shadow-sm hover:shadow-md z-40 ${isSelected ? "ring-2 ring-blue-500 border-transparent" : ""}`

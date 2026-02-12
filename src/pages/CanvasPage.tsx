@@ -307,7 +307,11 @@ export const CanvasPage = ({
 
         <div
           className={`absolute inset-0 pointer-events-none ${
-            isPanning ? "" : "transition-transform duration-75 ease-out"
+            isPanning
+              ? ""
+              : toolMode === "present"
+                ? "transition-transform duration-500 ease-in-out"
+                : "transition-transform duration-75 ease-out"
           }`}
           style={{
             transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
@@ -330,6 +334,7 @@ export const CanvasPage = ({
                   draggingId === track.id &&
                   draggingType === "track"
                 }
+                animate={toolMode === "present"}
               />
             ))}
             {cards.map((card) => (
@@ -380,6 +385,7 @@ export const CanvasPage = ({
                   )
                 }
                 onToggleSize={toggleCardSize}
+                animate={toolMode === "present"}
               />
             ))}
           </div>

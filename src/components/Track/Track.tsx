@@ -21,6 +21,7 @@ export const Track: FC<{
   onNameChange: (id: string, newName: string) => void;
   isOverDeleteZone: boolean;
   isSelected: boolean;
+  animate?: boolean;
 }> = ({
   trackData,
   isDragging,
@@ -30,6 +31,7 @@ export const Track: FC<{
   onNameChange,
   isOverDeleteZone,
   isSelected,
+  animate = false,
 }) => {
   const { x, y, width, height, name } = trackData;
   const [isEditing, setIsEditing] = useState(false);
@@ -68,7 +70,11 @@ export const Track: FC<{
   return (
     <div
       onMouseDown={(e) => onMouseDown(e, trackData.id)}
-      className={`absolute border-2 border-dashed rounded-2xl transition-shadow group select-none ${
+      className={`absolute border-2 border-dashed rounded-2xl group select-none ${
+        animate
+          ? "transition-[top,left,width,height,box-shadow] duration-500 ease-in-out"
+          : "transition-shadow"
+      } ${
         isDragging
           ? `shadow-xl border-blue-400 bg-blue-50/10 z-20 ${isOverDeleteZone ? "border-red-500 opacity-50" : ""}`
           : `${isSelected ? "border-blue-500 bg-blue-50/5 z-10" : "border-slate-300 bg-transparent z-0 hover:border-slate-400"}`
