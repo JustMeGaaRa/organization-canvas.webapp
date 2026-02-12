@@ -448,11 +448,12 @@ export const CanvasPage = ({
                   const isHighlighted = highlightedSet.connections.has(conn.id);
                   return (
                     <g key={conn.id}>
-                      <line
-                        x1={from.x + (from.size === "small" ? 112 : 128)}
-                        y1={from.y + (from.size === "small" ? 60 : 128)}
-                        x2={to.x + (to.size === "small" ? 112 : 128)}
-                        y2={to.y + (to.size === "small" ? 60 : 128)}
+                      <path
+                        d={`M ${from.x + (from.size === "small" ? 112 : 128)} ${from.y + (from.size === "small" ? 60 : 128)} 
+                            C ${from.x + (from.size === "small" ? 112 : 128)} ${from.y + (from.size === "small" ? 60 : 128) + 80}, 
+                              ${to.x + (to.size === "small" ? 112 : 128)} ${to.y + (to.size === "small" ? 60 : 128) - 80}, 
+                              ${to.x + (to.size === "small" ? 112 : 128)} ${to.y + (to.size === "small" ? 60 : 128)}`}
+                        fill="none"
                         stroke={isHighlighted ? "#4ade80" : "#94a3b8"}
                         strokeWidth={isHighlighted ? "4" : "2"}
                         opacity={isHighlighted ? 1 : isDimmedMode ? 0.1 : 0.6}
@@ -460,18 +461,19 @@ export const CanvasPage = ({
                         onClick={(e) => handleDeleteConnection(conn.id, e)}
                       />
                       {/* Hit area for easier clicking */}
-                      <line
-                        x1={from.x + (from.size === "small" ? 112 : 128)}
-                        y1={from.y + (from.size === "small" ? 60 : 128)}
-                        x2={to.x + (to.size === "small" ? 112 : 128)}
-                        y2={to.y + (to.size === "small" ? 60 : 128)}
+                      <path
+                        d={`M ${from.x + (from.size === "small" ? 112 : 128)} ${from.y + (from.size === "small" ? 60 : 128)} 
+                            C ${from.x + (from.size === "small" ? 112 : 128)} ${from.y + (from.size === "small" ? 60 : 128) + 80}, 
+                              ${to.x + (to.size === "small" ? 112 : 128)} ${to.y + (to.size === "small" ? 60 : 128) - 80}, 
+                              ${to.x + (to.size === "small" ? 112 : 128)} ${to.y + (to.size === "small" ? 60 : 128)}`}
+                        fill="none"
                         stroke="transparent"
                         strokeWidth="12"
                         className="pointer-events-auto cursor-pointer"
                         onClick={(e) => handleDeleteConnection(conn.id, e)}
                       >
                         <title>Alt+Click to Delete Connection</title>
-                      </line>
+                      </path>
                     </g>
                   );
                 })}
@@ -480,11 +482,12 @@ export const CanvasPage = ({
                     const from = cards.find((c) => c.id === connectingId);
                     if (!from) return null;
                     return (
-                      <line
-                        x1={from.x + (from.size === "small" ? 112 : 128)}
-                        y1={from.y + (from.size === "small" ? 60 : 128)}
-                        x2={connectingPoint.x}
-                        y2={connectingPoint.y}
+                      <path
+                        d={`M ${from.x + (from.size === "small" ? 112 : 128)} ${from.y + (from.size === "small" ? 60 : 128)} 
+                            C ${from.x + (from.size === "small" ? 112 : 128)} ${from.y + (from.size === "small" ? 60 : 128) + 80}, 
+                              ${connectingPoint.x} ${connectingPoint.y - 80}, 
+                              ${connectingPoint.x} ${connectingPoint.y}`}
+                        fill="none"
                         stroke="#3b82f6"
                         strokeWidth="2"
                         strokeDasharray="5,5"
