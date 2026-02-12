@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { Role, TrackData, Transform, Point } from "../types";
 
+const GRID_SIZE = 20;
+
 export function useCanvasInteraction(
   transform: Transform,
   setTransform: (t: Transform | ((prev: Transform) => Transform)) => void,
@@ -14,8 +16,6 @@ export function useCanvasInteraction(
   canvasRef: React.RefObject<HTMLDivElement | null>,
   deleteZoneRef: React.RefObject<HTMLDivElement | null>,
 ) {
-  const GRID_SIZE = 20;
-
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [draggingType, setDraggingType] = useState<
     "card" | "track" | "track-create" | null
@@ -44,6 +44,10 @@ export function useCanvasInteraction(
   const resizingIdRef = useRef(resizingId);
   const resizingSideRef = useRef(resizingSide);
   const isOverDeleteZoneRef = useRef(isOverDeleteZone);
+  const cardsRef = useRef(cards);
+  const tracksRef = useRef(tracks);
+  const selectedIdsRef = useRef(selectedIds);
+  const clipboardRef = useRef<{ type: "card" | "track"; data: Role | TrackData }[]>([]);
 
   // Sync refs
   useEffect(() => {
@@ -73,6 +77,15 @@ export function useCanvasInteraction(
   useEffect(() => {
     isOverDeleteZoneRef.current = isOverDeleteZone;
   }, [isOverDeleteZone]);
+  useEffect(() => {
+    cardsRef.current = cards;
+  }, [cards]);
+  useEffect(() => {
+    tracksRef.current = tracks;
+  }, [tracks]);
+  useEffect(() => {
+    selectedIdsRef.current = selectedIds;
+  }, [selectedIds]);
 
   // Zoom Logic
   const handleZoom = useCallback(
@@ -172,19 +185,31 @@ export function useCanvasInteraction(
 
     // Capture initial positions for all selected tracks or cards
     const initialPos: Record<string, { x: number; y: number }> = {};
-    // We only support multi-dragging TRACKS here if we follow the pattern,
-    // but ideally we support both. For now, let's at least support multiple tracks.
+    const cardsMap = new Map(cards.map((c) => [c.id, c]));
+
     tracks.forEach((t) => {
       if (newSelectedIds.includes(t.id)) {
         initialPos[t.id] = { x: t.x, y: t.y };
+        // Also capture contained cards for movement
+        t.containedCardIds?.forEach((cid) => {
+          const card = cardsMap.get(cid);
+          if (card) {
+            initialPos[cid] = { x: card.x, y: card.y };
+          }
+        });
       }
     });
-    // Also include cards if we want mixed dragging?
+    // Also include cards if they are explicitly selected
     cards.forEach((c) => {
       if (newSelectedIds.includes(c.id)) {
         initialPos[c.id] = { x: c.x, y: c.y };
       }
     });
+
+    // We also need to capture positions of cards that are NOT selected but are in tracks that MIGHT need resizing
+    // actually, we only need initialPos for things we are MOVING.
+    // If a card is not moved, its position is constant.
+
     initialPositionsRef.current = initialPos;
   };
 
@@ -214,56 +239,8 @@ export function useCanvasInteraction(
         return;
       }
 
-      // Handle Track Creation (draggingType === 'track-create')
-      const createType = draggingTypeRef.current;
-      const createId = draggingIdRef.current;
-      // We check draggingId above anyway
+      // Handle Track Creation REMOVED
 
-      if (createType === "track-create" && createId) {
-        const transform = transformRef.current;
-        const startOffset = offsetRef.current; // Contains {x: startX, y: startY}
-
-        const mouseX = (e.clientX - transform.x) / transform.scale;
-        const mouseY = (e.clientY - transform.y) / transform.scale;
-
-        // Snap to grid
-        const currentGridX = Math.round(mouseX / GRID_SIZE) * GRID_SIZE;
-        const currentGridY = Math.round(mouseY / GRID_SIZE) * GRID_SIZE;
-
-        setTracks((prev) =>
-          prev.map((t) => {
-            if (t.id !== createId) return t;
-
-            // Calculate new geometry
-            // startOffset.{x,y} is the Top-Left corner of where we started.
-            // currentGrid.{x,y} is where we are now.
-            // We need to handle dragging in any direction (top-left, bottom-right etc).
-
-            const startX = startOffset.x;
-            const startY = startOffset.y;
-
-            const newX = Math.min(startX, currentGridX);
-            const newY = Math.min(startY, currentGridY);
-            const newWidth = Math.abs(currentGridX - startX);
-            const newHeight = Math.abs(currentGridY - startY);
-
-            // Enforce minimum size if desired? Or allow small? Resize logic enforces >= 100.
-            // Let's enforce min size 100 on creation as well to match resize logic?
-            // Or allow smaller during creation and fix on mouse up?
-            // The user says "release to stop drawing". Often lets you draw small.
-            // Let's stick to simple logic for now.
-
-            return {
-              ...t,
-              x: newX,
-              y: newY,
-              width: Math.max(20, newWidth), // Arbitrary min size 20 to avoid hidden tracks
-              height: Math.max(20, newHeight),
-            };
-          }),
-        );
-        return;
-      }
 
       const resizingId = resizingIdRef.current;
 
@@ -337,29 +314,19 @@ export function useCanvasInteraction(
         const leaderInitial = initialPositions[draggingId];
 
         if (!leaderInitial) {
-          // Fallback if something went wrong - single item drag
-          if (draggingType === "card") {
-            setCards((prev) =>
-              prev.map((c) =>
-                c.id === draggingId ? { ...c, x: newMouseX, y: newMouseY } : c,
-              ),
-            );
-          } else {
-            setTracks((prev) =>
-              prev.map((t) =>
-                t.id === draggingId ? { ...t, x: newMouseX, y: newMouseY } : t,
-              ),
-            );
-          }
+          // Fallback - should ideally not happen if logic is correct
           return;
         }
 
         const deltaX = newMouseX - leaderInitial.x;
         const deltaY = newMouseY - leaderInitial.y;
 
-        // Update Cards if involved in selection
-        setCards((prev) =>
-          prev.map((c) => {
+        // 1. Calculate Next Cards State
+        let nextCards = cardsRef.current;
+        const cardsChanged = nextCards.some((c) => initialPositions[c.id]);
+
+        if (cardsChanged) {
+          nextCards = nextCards.map((c) => {
             if (initialPositions[c.id]) {
               return {
                 ...c,
@@ -368,21 +335,80 @@ export function useCanvasInteraction(
               };
             }
             return c;
-          }),
-        );
-        // Update Tracks if involved in selection
-        setTracks((prev) =>
-          prev.map((t) => {
-            if (initialPositions[t.id]) {
-              return {
-                ...t,
-                x: initialPositions[t.id].x + deltaX,
-                y: initialPositions[t.id].y + deltaY,
-              };
-            }
-            return t;
-          }),
-        );
+          });
+          setCards(nextCards);
+        }
+
+        // 2. Update Tracks
+        // Tracks are updated if:
+        // a) They are being dragged explicitly (in initialPositions) AND have no contained cards (legacy/empty tracks)
+        // b) They have contained cards (dynamic), in which case we RECALCULATE from nextCards
+        
+        setTracks((prevTracks) => {
+           return prevTracks.map(t => {
+               // Dynamic resizing Track
+               if (t.containedCardIds && t.containedCardIds.length > 0) {
+                   const contained = nextCards.filter(c => t.containedCardIds!.includes(c.id));
+                   if (contained.length === 0) return t; // Should not happen usually
+
+                   // Calculate bounds
+                   const minX = Math.min(...contained.map(c => c.x));
+                   const minY = Math.min(...contained.map(c => c.y));
+
+                   // Wait, Card Size?
+                   // RoleCard width/height: w-64 (256px) or w-full.
+                   // We need to know the card size. 
+                   // Cards state has `size` property ("small" or "large").
+                   // Small: h-24 (96px)? Large: h-64 (256px)?
+                   // Width is usually fixed w-64 (256px).
+                   // Let's assume standard width 280px (w-72 in some designs) or 256 (w-64).
+                   // Check RoleCard implementation ideally.
+                   // For now, let's look at `RoleCard.tsx` later, but assume 250x150 roughly.
+                   // Or better, let's use a safe bounding box.
+                   // Actually, if we use the same size constants as used in rendering, that's best.
+                   // Let's assume w=260, h depends on size.
+                   
+                   // For now, let's use:
+                   // Width: 256 (w-64)
+                   // Height: Small=100, Large=300? 
+                   // This is risky without exact dimensions.
+                   // But "size should match total area... with additional constant padding".
+                   
+                   // Let's use simplified logic for now: 256 width, and let's say 120/400 height?
+                   // We will refine constants if needed.
+                   
+                   let maxRight = -Infinity;
+                   let maxBottom = -Infinity;
+                   
+                   contained.forEach((c) => {
+                     const cW = c.size === "small" ? 224 : 256;
+                     const cH = c.size === "small" ? 120 : 256;
+                     maxRight = Math.max(maxRight, c.x + cW);
+                     maxBottom = Math.max(maxBottom, c.y + cH);
+                   });
+                   
+                   const PADDING = 40;
+                   return {
+                       ...t,
+                       x: minX - PADDING,
+                       y: minY - PADDING,
+                       width: (maxRight - minX) + (PADDING * 2),
+                       height: (maxBottom - minY) + (PADDING * 2)
+                   };
+               }
+               
+               // Existing Manual Drag Logic (for tracks without children)
+               if (initialPositions[t.id]) {
+                 return {
+                   ...t,
+                   x: initialPositions[t.id].x + deltaX,
+                   y: initialPositions[t.id].y + deltaY,
+                 };
+               }
+               
+               return t;
+           });
+        });
       }
     },
     [setCards, setTracks, setTransform, deleteZoneRef],
@@ -408,15 +434,7 @@ export function useCanvasInteraction(
           }
         } else setTracks((prev) => prev.filter((t) => t.id !== draggingId));
       } else if (draggingType === "track-create") {
-        // Remove if too small (< 10x10)
-        setTracks((prev) =>
-          prev.filter((t) => {
-            if (t.id === draggingId) {
-              return t.width >= 50 && t.height >= 50;
-            }
-            return true;
-          }),
-        );
+         // logic removed
       }
     }
 
@@ -456,42 +474,10 @@ export function useCanvasInteraction(
       setSelectedIds([]);
     }
 
-    // Track Creation Mode
+    // Track Creation Mode REMOVED (now handled by grouping action)
     if (toolMode === "track") {
-      if (!canvasRef.current) return;
-      const canvasRect = canvasRef.current.getBoundingClientRect();
-      const id = `track-${Date.now()}`;
-
-      const mouseX =
-        (e.clientX - canvasRect.left - transform.x) / transform.scale;
-      const mouseY =
-        (e.clientY - canvasRect.top - transform.y) / transform.scale;
-
-      // Snap to grid
-      const gridX = Math.round(mouseX / GRID_SIZE) * GRID_SIZE;
-      const gridY = Math.round(mouseY / GRID_SIZE) * GRID_SIZE;
-
-      const newTrack: TrackData = {
-        id,
-        x: gridX,
-        y: gridY,
-        width: 0,
-        height: 0,
-      };
-
-      setTracks((prev) => [...prev, newTrack]);
-      setResizingId(id); // Reuse resizing logic for "active interaction" state tracking if needed, or mostly just for ID.
-      setDraggingType("track-create"); // Special internal type or just use a new Ref?
-      // Actually let's just use resizingId and a new way to identify creation.
-      // Re-using resizingId is fine, but I need to distinguish "resizing existing" vs "creating".
-      // Let's use `draggingType` = 'track-create'.
-
-      setDraggingId(id);
-      setDraggingType("track-create");
-
-      // Store start point in offset for convenience (using logic: startX, startY)
-      setOffset({ x: gridX, y: gridY });
-      offsetRef.current = { x: gridX, y: gridY };
+        // No-op or allow selection?
+        // Maybe deselect?
     }
   };
 
@@ -514,25 +500,7 @@ export function useCanvasInteraction(
     }
   };
 
-  // Clipboard
-  const clipboardRef = useRef<
-    { type: "card" | "track"; data: Role | TrackData }[]
-  >([]);
 
-  // Refs for current data to access in keydown without dependencies
-  const cardsRef = useRef(cards);
-  const tracksRef = useRef(tracks); // Add tracksRef
-  const selectedIdsRef = useRef(selectedIds);
-
-  useEffect(() => {
-    cardsRef.current = cards;
-  }, [cards]);
-  useEffect(() => {
-    tracksRef.current = tracks; // Sync tracksRef
-  }, [tracks]);
-  useEffect(() => {
-    selectedIdsRef.current = selectedIds;
-  }, [selectedIds]);
 
   const startDragExternal = (
     e: React.MouseEvent,
@@ -665,5 +633,6 @@ export function useCanvasInteraction(
     handleWheel,
     handleZoom,
     startDragExternal,
+    setSelectedIds,
   };
 }

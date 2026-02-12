@@ -24,6 +24,8 @@ export interface TrackData {
   y: number;
   width: number;
   height: number;
+  containedCardIds?: string[];
+  name?: string;
 }
 
 export interface Org {

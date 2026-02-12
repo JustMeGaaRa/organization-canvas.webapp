@@ -18,6 +18,8 @@ import type {
   TrackData,
 } from "../types";
 
+const TRACK_PADDING = 20;
+
 type HistoryStep = {
   timestamp: number;
   cards: Role[];
@@ -81,12 +83,14 @@ export const CanvasPage = ({
     isOverDeleteZone,
     selectedIds,
     handleStartDragCard,
+
     handleStartDragTrack,
     handleResizeStart,
     handleMouseDown,
     handleWheel,
     handleZoom,
     startDragExternal,
+    setSelectedIds,
   } = useCanvasInteraction(
     transform,
     setTransform,
@@ -132,6 +136,12 @@ export const CanvasPage = ({
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  const handleTrackNameChange = (id: string, newName: string) => {
+    setTracks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, name: newName } : t)),
+    );
   };
 
   const handleRestore = (file: File) => {
@@ -187,6 +197,53 @@ export const CanvasPage = ({
   const handleToolModeChange = (
     mode: "select" | "pan" | "track" | "record" | "present",
   ) => {
+    if (mode === "track") {
+      const selectedCards = cards.filter((c) => selectedIds.includes(c.id));
+      if (selectedCards.length > 0) {
+        // Group Logic
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxRight = -Infinity;
+        let maxBottom = -Infinity;
+
+        // Constants used for calculation (Must be consistent with rendering)
+        const CARD_WIDTH_LARGE = 256; // w-64
+        const CARD_WIDTH_SMALL = 224; // w-56
+        const CARD_HEIGHT_LARGE = 256; // h-64
+        const CARD_HEIGHT_SMALL = 120; // Approx based on content
+
+        selectedCards.forEach((c) => {
+          minX = Math.min(minX, c.x);
+          minY = Math.min(minY, c.y);
+          maxRight = Math.max(
+            maxRight,
+            c.x + (c.size === "small" ? CARD_WIDTH_SMALL : CARD_WIDTH_LARGE),
+          );
+          maxBottom = Math.max(
+            maxBottom,
+            c.y + (c.size === "small" ? CARD_HEIGHT_SMALL : CARD_HEIGHT_LARGE),
+          );
+        });
+        const newTrack: TrackData = {
+          id: `track-${Date.now()}`,
+          x: minX - TRACK_PADDING,
+          y: minY - TRACK_PADDING,
+          width: maxRight - minX + TRACK_PADDING * 2,
+          height: maxBottom - minY + TRACK_PADDING * 2,
+          containedCardIds: selectedCards.map((c) => c.id),
+          name: "Group",
+        };
+
+        setTracks((prev) => [...prev, newTrack]);
+        setSelectedIds([newTrack.id]);
+        setToolMode("select");
+      } else {
+        alert("Please select cards to create a group.");
+        setToolMode("select");
+      }
+      return;
+    }
+
     if (mode === "present") {
       if (historySteps.length > 0) {
         setCurrentStepIndex(0);
@@ -267,6 +324,7 @@ export const CanvasPage = ({
                 isSelected={selectedIds.includes(track.id)}
                 onMouseDown={handleStartDragTrack}
                 onResizeStart={handleResizeStart}
+                onNameChange={handleTrackNameChange}
                 isOverDeleteZone={
                   isOverDeleteZone &&
                   draggingId === track.id &&
