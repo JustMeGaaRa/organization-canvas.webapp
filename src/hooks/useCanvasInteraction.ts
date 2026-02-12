@@ -38,6 +38,7 @@ export function useCanvasInteraction(
   const [isOverDeleteZone, setIsOverDeleteZone] = useState(false);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isCtrlPressed, setIsCtrlPressed] = useState(false);
   const initialPositionsRef = useRef<Record<string, { x: number; y: number }>>(
     {},
   );
@@ -66,6 +67,30 @@ export function useCanvasInteraction(
   useEffect(() => {
     offsetRef.current = offset;
   }, [offset]);
+  
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Control" || e.key === "Meta") setIsCtrlPressed(true);
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === "Control" || e.key === "Meta") setIsCtrlPressed(false);
+    };
+    
+    // Also handle visibility change to reset state if user tabs out
+    const handleVisibilityChange = () => {
+      if (document.hidden) setIsCtrlPressed(false);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
   useEffect(() => {
     lastPanPointRef.current = lastPanPoint;
   }, [lastPanPoint]);
@@ -120,23 +145,38 @@ export function useCanvasInteraction(
 
   const handleStartDragCard = (e: React.MouseEvent, cardId: string) => {
     if (viewMode === "connection") {
-      e.stopPropagation();
-      setConnectingId(cardId);
-      const card = cards.find((c) => c.id === cardId);
-      if (card) {
-        setConnectingPoint({
-          x: card.x + (card.size === "small" ? 112 : 128), // Center
-          y: card.y + (card.size === "small" ? 60 : 128), // Center
-        });
+      // If modifier key is pressed, allow selection logic to run
+      if (!e.ctrlKey && !e.metaKey) {
+        e.stopPropagation();
+        setConnectingId(cardId);
+        const card = cards.find((c) => c.id === cardId);
+        if (card) {
+          setConnectingPoint({
+            x: card.x + (card.size === "small" ? 112 : 128), // Center
+            y: card.y + (card.size === "small" ? 60 : 128), // Center
+          });
+        }
+        return;
       }
-      return;
     }
 
-    if (toolMode !== "select" || e.button !== 0) return;
+    // Default select tool behavior (shared by connection highlight selection)
+    if (toolMode !== "select" && viewMode !== "connection") return;
+    if (e.button !== 0) return;
     e.stopPropagation();
 
     // Selection Logic
     let newSelectedIds = selectedIds;
+
+    // In connection mode, normal click shouldn't clear selection unless we want it to?
+    // User request: "Allow to select cards in connection mode."
+    // If I click without Ctrl, it usually selects just that card (clearing others).
+    // If I Ctrl-Click, it toggles.
+    // The previous block handled Connection Creation (no modifiers).
+    // So if we are here, either modifiers are pressed OR ViewMode != Connection OR ToolMode == Select.
+    // Wait. If (viewMode == Connection AND No Modifiers), I returned early in previous block.
+    // So if we are here in Connection Mode, Modifiers MUST be pressed.
+    // So we just proceed with standard toggling logic.
     if (e.ctrlKey || e.metaKey) {
       if (selectedIds.includes(cardId)) {
         newSelectedIds = selectedIds.filter((id) => id !== cardId);
@@ -721,5 +761,6 @@ export function useCanvasInteraction(
     connectingPoint,
     hoveredCardId,
     setHoveredCardId,
+    isCtrlPressed,
   };
 }

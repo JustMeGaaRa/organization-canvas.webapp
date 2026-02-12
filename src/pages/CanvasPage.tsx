@@ -95,6 +95,7 @@ export const CanvasPage = ({
     connectingPoint,
     hoveredCardId,
     setHoveredCardId,
+    isCtrlPressed,
   } = useCanvasInteraction(
     transform,
     setTransform,
@@ -287,8 +288,16 @@ export const CanvasPage = ({
       };
     }
 
-    // Determine source IDs: Hover takes precedence over Selection
-    const sourceIds: string[] = hoveredCardId ? [hoveredCardId] : selectedIds;
+    // Determine source IDs: Hover takes precedence over Selection ONLY if Ctrl is pressed
+    // User request: "The highlighting on hover should work when 'ctrl' is pressed... Simple hover does nothing."
+    // "The connected cards should also be highlighted when card is selected"
+    
+    let sourceIds: string[] = [];
+    if (hoveredCardId && isCtrlPressed) {
+      sourceIds = [hoveredCardId];
+    } else {
+      sourceIds = selectedIds;
+    }
 
     if (sourceIds.length === 0) {
       return { 
