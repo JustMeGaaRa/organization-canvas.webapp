@@ -10,24 +10,10 @@ import { Toolbar } from "../components/Canvas/Toolbar";
 import { Sidebar } from "../components/Sidebar";
 import { useCanvasData } from "../hooks/useCanvasData";
 import { useCanvasInteraction } from "../hooks/useCanvasInteraction";
-import type {
-  Role,
-  Person,
-  Org,
-  RoleTemplate,
-  Transform,
-  TrackData,
-} from "../types";
+import type { Role, Person, Org, RoleTemplate, TrackData } from "../types";
 
 const GRID_SIZE = 16;
 const TRACK_PADDING = 16;
-
-type HistoryStep = {
-  timestamp: number;
-  cards: Role[];
-  tracks: TrackData[];
-  transform: Transform;
-};
 
 interface CanvasPageProps {
   orgs: Org[];
@@ -67,15 +53,22 @@ export const CanvasPage = ({
   const [toolMode, setToolMode] = useState<
     "select" | "pan" | "track" | "record" | "present"
   >("select");
-  const [historySteps, setHistorySteps] = useState<HistoryStep[]>([]);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
   const [viewMode, setViewMode] = useState<"structure" | "chart">("chart");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   // Canvas Data & Interaction Hooks
-  const { cards, setCards, tracks, setTracks, transform, setTransform } =
-    useCanvasData(currentOrgId);
+  const {
+    cards,
+    setCards,
+    tracks,
+    setTracks,
+    transform,
+    setTransform,
+    historySteps,
+    setHistorySteps,
+  } = useCanvasData(currentOrgId);
 
   const {
     draggingId,
@@ -126,6 +119,7 @@ export const CanvasPage = ({
       roleTemplates: roleTemplates,
       peopleTemplates: peopleTemplates,
       transform: transform,
+      historySteps: historySteps,
     };
 
     const blob = new Blob([JSON.stringify(backupData, null, 2)], {
@@ -167,6 +161,7 @@ export const CanvasPage = ({
         if (data.roleTemplates) setRoleTemplates(data.roleTemplates);
         if (data.peopleTemplates) setPeopleTemplates(data.peopleTemplates);
         if (data.transform) setTransform(data.transform);
+        if (data.historySteps) setHistorySteps(data.historySteps);
 
         // alert("Organization restored successfully!");
       } catch (err) {
@@ -253,13 +248,26 @@ export const CanvasPage = ({
         restoreStep(0); // Start from first step
       }
       setIsSidebarOpen(false); // Close sidebar in present mode
+    } else if (toolMode === "present") {
+      // Exiting present mode: restore the latest state
+      if (historySteps.length > 0) {
+        const lastIndex = historySteps.length - 1;
+        restoreStep(lastIndex);
+        setCurrentStepIndex(lastIndex);
+      }
     }
 
     setToolMode(mode);
   };
 
   const handleResetRecording = () => {
-    setHistorySteps([]);
+    const step = {
+      timestamp: Date.now(),
+      cards,
+      tracks,
+      transform,
+    };
+    setHistorySteps([step]);
     setCurrentStepIndex(0);
   };
 

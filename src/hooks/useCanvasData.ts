@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import type { Role, TrackData, Transform } from "../types";
+import type { Role, TrackData, Transform, HistoryStep } from "../types";
 
 function usePersistedState<T>(key: string, initialValue: T) {
   const [value, setValue] = useState<T>(() => {
@@ -34,6 +34,11 @@ export function useCanvasData(currentOrgId: string) {
     { x: 0, y: 0, scale: 1 },
   );
 
+  const [historySteps, setHistorySteps] = usePersistedState<HistoryStep[]>(
+    `org_${currentOrgId}_history`,
+    [],
+  );
+
   return {
     cards,
     setCards,
@@ -41,5 +46,7 @@ export function useCanvasData(currentOrgId: string) {
     setTracks,
     transform,
     setTransform,
+    historySteps,
+    setHistorySteps,
   };
 }

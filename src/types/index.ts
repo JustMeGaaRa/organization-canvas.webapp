@@ -43,3 +43,10 @@ export interface Point {
   x: number;
   y: number;
 }
+
+export interface HistoryStep {
+  timestamp: number;
+  cards: Role[];
+  tracks: TrackData[];
+  transform: Transform;
+}
