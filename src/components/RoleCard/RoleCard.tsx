@@ -25,7 +25,6 @@ export const RoleCard: FC<{
   isDimmed?: boolean;
   onHover?: (id: string | null) => void;
   viewMode: "chart" | "structure" | "connection";
-  viewMode: "chart" | "structure";
   animate?: boolean;
 }> = ({
   roleData,
@@ -87,45 +86,47 @@ export const RoleCard: FC<{
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`absolute ${cardWidth} ${cardHeight} border bg-white p-5 rounded-2xl flex flex-col select-none cursor-grab active:cursor-grabbing ${
+      className={`absolute ${cardWidth} ${cardHeight} rounded-2xl flex flex-col select-none cursor-grab active:cursor-grabbing ${
         animate
           ? "transition-[top,left,width,height,box-shadow] duration-500 ease-in-out"
           : "transition-shadow"
       } ${
         isDragging
           ? `shadow-2xl ring-2 ${isOverDeleteZone ? "ring-red-500 scale-90 opacity-50" : "ring-blue-400"} z-50`
-          : `shadow-sm hover:shadow-md z-40 ${isSelected ? "ring-2 ring-blue-500 border-transparent" : ""} ${isHighlighted ? "ring-4 ring-green-400 shadow-[0_0_20px_rgba(74,222,128,0.6)] border-green-500" : ""}`
-      } ${isOver ? "ring-4 ring-green-400 border-transparent bg-green-50" : !isDragging && !isSelected && !isHighlighted ? "border-slate-200" : ""}
+          : `shadow-sm hover:shadow-md z-40 ${isSelected ? "ring-2 ring-blue-500 z-40" : ""} ${isHighlighted ? "p-[3px] bg-gradient-to-r from-green-400 to-blue-500 shadow-[0_0_15px_rgba(74,222,128,0.5),0_0_50px_rgba(74,222,128,0.3)] z-50" : "border border-slate-200"}`
+      } ${isOver && !isHighlighted ? "ring-4 ring-green-400" : ""}
       ${isDimmed ? "opacity-30 grayscale saturate-0" : "opacity-100"}`}
       style={{ left: `${x}px`, top: `${y}px`, transformOrigin: "top left" }}
     >
-      <div className="flex justify-between items-start mb-2 relative">
-        <div className="relative">
-          <RoleAvatar
+      <div className={`w-full h-full bg-white rounded-xl p-5 relative flex flex-col ${isOver ? "bg-green-50" : ""}`}>
+        <div className="flex justify-between items-start mb-2 relative">
+          <div className="relative">
+            <RoleAvatar
+              isChart={isChart}
+              isSmall={isSmall}
+              assignedPerson={assignedPerson}
+            />
+            <RoleStatus status={status} isChart={isChart} isSmall={isSmall} />
+          </div>
+
+          <RoleMenu
             isChart={isChart}
             isSmall={isSmall}
-            assignedPerson={assignedPerson}
+            roleData={roleData}
+            status={status}
+            onToggleSize={onToggleSize}
+            onApprove={onApprove}
+            onClear={onClear}
           />
-          <RoleStatus status={status} isChart={isChart} isSmall={isSmall} />
         </div>
-
-        <RoleMenu
+        <RoleInfo
           isChart={isChart}
           isSmall={isSmall}
-          roleData={roleData}
-          status={status}
-          onToggleSize={onToggleSize}
-          onApprove={onApprove}
-          onClear={onClear}
+          role={role}
+          summary={summary}
+          assignedPerson={assignedPerson}
         />
       </div>
-      <RoleInfo
-        isChart={isChart}
-        isSmall={isSmall}
-        role={role}
-        summary={summary}
-        assignedPerson={assignedPerson}
-      />
     </div>
   );
 };

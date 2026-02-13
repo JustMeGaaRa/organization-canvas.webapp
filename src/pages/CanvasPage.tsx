@@ -441,6 +441,19 @@ export const CanvasPage = ({
             ))}
             {viewMode === "connection" && (
               <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-visible">
+                <defs>
+                  <linearGradient id="gradient-highlight" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#4ade80" />
+                    <stop offset="100%" stopColor="#3b82f6" />
+                  </linearGradient>
+                  <filter id="glow-shadow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="4" result="coloredBlur" />
+                    <feMerge>
+                      <feMergeNode in="coloredBlur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
                 {connections.map((conn) => {
                   const from = cards.find((c) => c.id === conn.from);
                   const to = cards.find((c) => c.id === conn.to);
@@ -454,9 +467,10 @@ export const CanvasPage = ({
                               ${to.x + (to.size === "small" ? 112 : 128)} ${to.y + (to.size === "small" ? 60 : 128) - 80}, 
                               ${to.x + (to.size === "small" ? 112 : 128)} ${to.y + (to.size === "small" ? 60 : 128)}`}
                         fill="none"
-                        stroke={isHighlighted ? "#4ade80" : "#94a3b8"}
+                        stroke={isHighlighted ? "url(#gradient-highlight)" : "#94a3b8"}
                         strokeWidth={isHighlighted ? "4" : "2"}
                         opacity={isHighlighted ? 1 : isDimmedMode ? 0.1 : 0.6}
+                        style={{ filter: isHighlighted ? "drop-shadow(0 0 6px rgba(74, 222, 128, 0.6))" : "none" }}
                         className={`transition-all duration-300 ${viewMode === "connection" ? "pointer-events-auto cursor-pointer hover:stroke-red-400" : ""}`}
                         onClick={(e) => handleDeleteConnection(conn.id, e)}
                       />
@@ -468,7 +482,7 @@ export const CanvasPage = ({
                               ${to.x + (to.size === "small" ? 112 : 128)} ${to.y + (to.size === "small" ? 60 : 128)}`}
                         fill="none"
                         stroke="transparent"
-                        strokeWidth="12"
+                        strokeWidth="20"
                         className="pointer-events-auto cursor-pointer"
                         onClick={(e) => handleDeleteConnection(conn.id, e)}
                       >
