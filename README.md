@@ -1,73 +1,118 @@
-# React + TypeScript + Vite
+# 🏢 Organization Canvas
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+![Organization Canvas](https://img.shields.io/badge/Status-Active-brightgreen)
+![React](https://img.shields.io/badge/React-19-blue)
+![Vite](https://img.shields.io/badge/Vite-Latest-646CFF)
+![TailwindCSS](https://img.shields.io/badge/TailwindCSS-4-06B6D4)
 
-Currently, two official plugins are available:
+A powerful, visual, and interactive organizational design tool built with React 19, Vite, and Tailwind CSS. **Organization Canvas** allows you to build, manage, and present organizational structures using a flexible "infinite" canvas approach.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## ✨ Key Features
 
-## React Compiler
+### 🎨 Visual Canvas
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Infinite Workspace**: Pan and zoom across a large radial-grid workspace.
+- **Drag & Drop**: Easily place roles and people onto the canvas from your library.
+- **Multi-Selection**: Select multiple elements to move or group them together.
 
-## Expanding the ESLint configuration
+### 🗃️ Library Management
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- **Role Templates**: Define reusable role definitions with summaries.
+- **People Directory**: Manage a library of individuals with avatars and names.
+- **Smart Assignment**: Drag people onto roles to suggest or assign them.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### 📐 Structural Grouping (Tracks)
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+- **Container Tracks**: Group related roles into departments, squads, or functional teams.
+- **Dynamic Resizing**: Tracks automatically adapt or can be manually resized to fit your structure.
+- **Ungrouping**: Easily dissolve tracks while keeping the underlying role cards.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+### 📽️ Recording & Presentation Mode
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+- **State Capture**: Record "snapshots" of your organization at different stages.
+- **Smooth Transitions**: Use **Presentation Mode** to animate between recorded states with professional Framer Motion transitions.
+- **Step Navigation**: Navigate forward and backward through your org design narrative.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### 💾 Data Management
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- **Local Persistence**: All changes are automatically saved to your browser's local storage.
+- **Backup & Restore**: Export your entire organization design (including templates and history) as a JSON file for sharing or safe-keeping.
+- **Multi-Org Support**: Create and switch between multiple independent organizations.
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) (v18 or higher recommended)
+- [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
+
+### Installation
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/JustMeGaaRa/org-structure-web-app.git
+   cd org-structure-web-app
+   ```
+
+2. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+3. Start the development server:
+
+   ```bash
+   npm run dev
+   ```
+
+4. Open your browser and navigate to `http://localhost:5173`.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Core**: [React 19](https://react.dev/)
+- **Build Tool**: [Vite](https://vitejs.dev/)
+- **Styling**: [Tailwind CSS 4](https://tailwindcss.com/)
+- **Animations**: [Framer Motion](https://www.framer.com/motion/)
+- **Icons**: [Lucide React](https://lucide.dev/)
+- **State Management**: React Hooks & Local Storage
+- **Routing**: Minimal page-switching logic (Canvas vs. Library Editor)
+
+---
+
+## 📖 How to Use
+
+### 1. Building your structure
+
+- Use the **Library Sidebar** (on the right) to drag roles onto the canvas.
+- Change the **Tool Mode** in the bottom toolbar:
+  - `Select` (Pointer): Move cards around.
+  - `Pan` (Hand): Move the entire canvas.
+  - `Track` (Box): Group selected items into a new container.
+
+### 2. Managing the Library
+
+- Click **"Manage Library"** in the sidebar to enter the **Library Editor**.
+- Here you can add new Role templates or Person entries that will be available globally for your organization.
+
+### 3. Recording a Story
+
+- Click the `Capture` button to capture a snapshot of the current organization structure.
+- Click the `Reset` button to reset the canvas to its initial state.
+- Switch to `Present` mode to play back your snapshots. Use the arrow controls in the bottom toolbar to navigate.
+
+### 4. Backup & Restore
+
+- Use the **Settings** icons in the sidebar to export your current org to a JSON file.
+- You can restore any organization by dragging the JSON file into the restore area or selecting it via the file browser.
+
+---
+
+## 📄 License
+
+This project is licensed under the Apache-2.0 License - see the [LICENSE](LICENSE) file for details.
