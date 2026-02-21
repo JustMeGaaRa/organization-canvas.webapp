@@ -49,7 +49,7 @@ export const TrackLabel = ({
           : "bg-slate-300 text-slate-700 border-slate-300 hover:bg-slate-400 hover:border-slate-400"
       }`}
       onClick={handleStartEditing}
-      onMouseDown={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
     >
       {isEditing ? (
         <input
@@ -69,7 +69,7 @@ export const TrackLabel = ({
           {name || "Group"}
           <Pencil
             size={10}
-            className={`opacity-0 group-hover:opacity-100 transition-opacity ${isSelected ? "text-white" : "text-slate-500"}`}
+            className={`opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-60 transition-opacity ${isSelected ? "text-white" : "text-slate-500"}`}
           />
         </>
       )}

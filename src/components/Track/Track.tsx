@@ -13,9 +13,9 @@ export const Track: FC<{
   trackData: TrackData;
   isDragging: boolean;
   isResizing: boolean;
-  onMouseDown: (e: React.MouseEvent<HTMLDivElement>, trackId: string) => void;
+  onPointerDown: (e: React.PointerEvent<HTMLDivElement>, trackId: string) => void;
   onResizeStart: (
-    e: React.MouseEvent<HTMLDivElement>,
+    e: React.PointerEvent<HTMLDivElement>,
     trackId: string,
     direction: "top" | "bottom" | "left" | "right",
   ) => void;
@@ -28,7 +28,7 @@ export const Track: FC<{
   trackData,
   isDragging,
   isResizing,
-  onMouseDown,
+  onPointerDown,
   onResizeStart,
   onNameChange,
   onUngroup,
@@ -39,7 +39,7 @@ export const Track: FC<{
   const { x, y, width, height } = trackData;
 
   const handleResize = (
-    e: React.MouseEvent<HTMLDivElement>,
+    e: React.PointerEvent<HTMLDivElement>,
     direction: "top" | "bottom" | "left" | "right",
   ) => {
     onResizeStart(e, trackData.id, direction);
@@ -52,7 +52,7 @@ export const Track: FC<{
       animate={{ opacity: 1, scale: 1 }}
       exit={animate ? { opacity: 0, scale: 0.9 } : undefined}
       transition={{ duration: 0.3 }}
-      onMouseDown={(e) => onMouseDown(e, trackData.id)}
+      onPointerDown={(e) => onPointerDown(e, trackData.id)}
       className={`absolute border-2 border-dashed rounded-2xl group select-none ${
         animate
           ? "transition-[top,left,width,height,box-shadow] duration-500 ease-in-out"
@@ -85,7 +85,7 @@ export const Track: FC<{
       />
 
       {(["top", "bottom", "left", "right"] as const).map((dir) => (
-        <ResizeHandle key={dir} direction={dir} onResizeStart={handleResize} />
+        <ResizeHandle key={dir} direction={dir} isSelected={isSelected} onResizeStart={handleResize} />
       ))}
     </motion.div>
   );

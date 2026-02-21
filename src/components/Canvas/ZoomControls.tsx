@@ -16,7 +16,7 @@ export const ZoomControls = ({
   return (
     <div
       className="absolute bottom-8 right-8 z-40"
-      onMouseDown={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
     >
       <div className="bg-white/90 backdrop-blur-sm border border-slate-200/60 rounded-2xl shadow-xl flex items-center p-1.5 gap-1">
         <button

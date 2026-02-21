@@ -59,6 +59,14 @@ export function useCanvasInteraction(
   >([]);
   const draggedNewCardRef = useRef(draggedNewCard);
 
+  // Multi-touch / pinch-zoom refs
+  const activePointersRef = useRef<Map<number, Point>>(new Map());
+  const lastPinchDistanceRef = useRef<number | null>(null);
+  const lastPinchMidpointRef = useRef<Point | null>(null);
+  const primaryPointerIdRef = useRef<number | null>(null);
+  // For detecting background tap vs pan-drag on touch
+  const backgroundTouchStartRef = useRef<Point | null>(null);
+
   // Sync refs
   useEffect(() => {
     transformRef.current = transform;
@@ -115,17 +123,29 @@ export function useCanvasInteraction(
     [setTransform],
   );
 
-  const handleStartDragCard = (e: React.MouseEvent, cardId: string) => {
-    if (toolMode !== "select" || e.button !== 0) return;
+  // Stable ref so pinch handler can call it without re-attaching listeners
+  const handleZoomRef = useRef(handleZoom);
+  handleZoomRef.current = handleZoom;
+
+  const handleStartDragCard = (e: React.PointerEvent, cardId: string) => {
+    if (toolMode !== "select") return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    if (
+      primaryPointerIdRef.current !== null &&
+      primaryPointerIdRef.current !== e.pointerId
+    )
+      return;
+
     e.stopPropagation();
+    primaryPointerIdRef.current = e.pointerId;
 
     // Selection Logic
     let newSelectedIds = selectedIds;
-    if (e.ctrlKey || e.metaKey) {
+    if ((e.ctrlKey || e.metaKey) && e.pointerType === "mouse") {
       if (selectedIds.includes(cardId)) {
         newSelectedIds = selectedIds.filter((id) => id !== cardId);
-        // If we deselect, we don't drag
         setSelectedIds(newSelectedIds);
+        primaryPointerIdRef.current = null;
         return;
       } else {
         newSelectedIds = [...selectedIds, cardId];
@@ -163,17 +183,25 @@ export function useCanvasInteraction(
     initialPositionsRef.current = initialPos;
   };
 
-  const handleStartDragTrack = (e: React.MouseEvent, trackId: string) => {
-    if (toolMode !== "select" || e.button !== 0) return;
+  const handleStartDragTrack = (e: React.PointerEvent, trackId: string) => {
+    if (toolMode !== "select") return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    if (
+      primaryPointerIdRef.current !== null &&
+      primaryPointerIdRef.current !== e.pointerId
+    )
+      return;
+
     e.stopPropagation();
+    primaryPointerIdRef.current = e.pointerId;
 
     // Selection Logic
     let newSelectedIds = selectedIds;
-    if (e.ctrlKey || e.metaKey) {
+    if ((e.ctrlKey || e.metaKey) && e.pointerType === "mouse") {
       if (selectedIds.includes(trackId)) {
         newSelectedIds = selectedIds.filter((id) => id !== trackId);
-        // If we deselect, we don't drag
         setSelectedIds(newSelectedIds);
+        primaryPointerIdRef.current = null;
         return;
       } else {
         newSelectedIds = [...selectedIds, trackId];
@@ -203,7 +231,6 @@ export function useCanvasInteraction(
     tracks.forEach((t) => {
       if (newSelectedIds.includes(t.id)) {
         initialPos[t.id] = { x: t.x, y: t.y };
-        // Also capture contained cards for movement
         t.containedCardIds?.forEach((cid) => {
           const card = cardsMap.get(cid);
           if (card) {
@@ -212,37 +239,110 @@ export function useCanvasInteraction(
         });
       }
     });
-    // Also include cards if they are explicitly selected
     cards.forEach((c) => {
       if (newSelectedIds.includes(c.id)) {
         initialPos[c.id] = { x: c.x, y: c.y };
       }
     });
 
-    // We also need to capture positions of cards that are NOT selected but are in tracks that MIGHT need resizing
-    // actually, we only need initialPos for things we are MOVING.
-    // If a card is not moved, its position is constant.
-
     initialPositionsRef.current = initialPos;
   };
 
   const handleResizeStart = (
-    e: React.MouseEvent,
+    e: React.PointerEvent,
     trackId: string,
     side: "top" | "bottom" | "left" | "right",
   ) => {
     e.stopPropagation();
+    if (
+      primaryPointerIdRef.current !== null &&
+      primaryPointerIdRef.current !== e.pointerId
+    )
+      return;
+    primaryPointerIdRef.current = e.pointerId;
     setResizingId(trackId);
     setResizingSide(side);
   };
 
-  // Handlers for mouse events on Window
-  const handleMouseMove = useCallback(
-    (e: MouseEvent) => {
-      const isPanning = isPanningRef.current;
+  // Main pointer move handler (window level)
+  const handlePointerMove = useCallback(
+    (e: PointerEvent) => {
+      // Update active pointers (only those tracked from canvas)
+      if (activePointersRef.current.has(e.pointerId)) {
+        activePointersRef.current.set(e.pointerId, {
+          x: e.clientX,
+          y: e.clientY,
+        });
+      }
+
+      // Two-finger pinch + pan (takes priority over single-touch)
+      if (activePointersRef.current.size >= 2) {
+        const points = Array.from(activePointersRef.current.values());
+        const [p1, p2] = points;
+        const distance = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        const midX = (p1.x + p2.x) / 2;
+        const midY = (p1.y + p2.y) / 2;
+
+        if (
+          lastPinchDistanceRef.current !== null &&
+          lastPinchMidpointRef.current !== null
+        ) {
+          // Pinch zoom
+          const zoomDelta =
+            (distance - lastPinchDistanceRef.current) * 0.003;
+          const canvas = canvasRef.current;
+          if (canvas) {
+            const rect = canvas.getBoundingClientRect();
+            handleZoomRef.current(
+              zoomDelta,
+              midX - rect.left,
+              midY - rect.top,
+            );
+          }
+          // Pan from midpoint movement
+          const panDx = midX - lastPinchMidpointRef.current.x;
+          const panDy = midY - lastPinchMidpointRef.current.y;
+          if (panDx !== 0 || panDy !== 0) {
+            setTransform((prev) => ({
+              ...prev,
+              x: prev.x + panDx,
+              y: prev.y + panDy,
+            }));
+          }
+        }
+
+        lastPinchDistanceRef.current = distance;
+        lastPinchMidpointRef.current = { x: midX, y: midY };
+        return;
+      }
+
+      // Only respond to primary pointer for single-touch operations
+      if (
+        primaryPointerIdRef.current !== null &&
+        e.pointerId !== primaryPointerIdRef.current
+      )
+        return;
+
+      // Background touch: lazy pan start (wait for movement threshold)
+      const bgTouchStart = backgroundTouchStartRef.current;
+      if (bgTouchStart) {
+        const dist = Math.hypot(
+          e.clientX - bgTouchStart.x,
+          e.clientY - bgTouchStart.y,
+        );
+        if (dist > 5) {
+          setIsPanning(true);
+          isPanningRef.current = true;
+          setLastPanPoint({ x: e.clientX, y: e.clientY });
+          lastPanPointRef.current = { x: e.clientX, y: e.clientY };
+          backgroundTouchStartRef.current = null;
+        } else {
+          return; // Hasn't moved enough yet
+        }
+      }
 
       // Handle Panning
-      if (isPanning) {
+      if (isPanningRef.current) {
         const lastPanPoint = lastPanPointRef.current;
         const dx = e.clientX - lastPanPoint.x;
         const dy = e.clientY - lastPanPoint.y;
@@ -251,8 +351,6 @@ export function useCanvasInteraction(
         lastPanPointRef.current = { x: e.clientX, y: e.clientY };
         return;
       }
-
-      // Handle Track Creation REMOVED
 
       const resizingId = resizingIdRef.current;
 
@@ -306,7 +404,7 @@ export function useCanvasInteraction(
           e.clientY <= dzRect.bottom;
 
         setIsOverDeleteZone(isOver);
-        isOverDeleteZoneRef.current = isOver; // update ref immediately
+        isOverDeleteZoneRef.current = isOver;
       }
 
       const offset = offsetRef.current;
@@ -340,19 +438,16 @@ export function useCanvasInteraction(
       }
 
       if (draggingType === "card" || draggingType === "track") {
-        // Multi-drag logic for both types
         const initialPositions = initialPositionsRef.current;
         const leaderInitial = initialPositions[draggingId];
 
         if (!leaderInitial) {
-          // Fallback - should ideally not happen if logic is correct
           return;
         }
 
         const deltaX = newMouseX - leaderInitial.x;
         const deltaY = newMouseY - leaderInitial.y;
 
-        // 1. Calculate Next Cards State
         let nextCards = cardsRef.current;
         const cardsChanged = nextCards.some((c) => initialPositions[c.id]);
 
@@ -370,45 +465,16 @@ export function useCanvasInteraction(
           setCards(nextCards);
         }
 
-        // 2. Update Tracks
-        // Tracks are updated if:
-        // a) They are being dragged explicitly (in initialPositions) AND have no contained cards (legacy/empty tracks)
-        // b) They have contained cards (dynamic), in which case we RECALCULATE from nextCards
-
         setTracks((prevTracks) => {
           return prevTracks.map((t) => {
-            // Dynamic resizing Track
             if (t.containedCardIds && t.containedCardIds.length > 0) {
               const contained = nextCards.filter((c) =>
                 t.containedCardIds!.includes(c.id),
               );
-              if (contained.length === 0) return t; // Should not happen usually
+              if (contained.length === 0) return t;
 
-              // Calculate bounds
               const minX = Math.min(...contained.map((c) => c.x));
               const minY = Math.min(...contained.map((c) => c.y));
-
-              // Wait, Card Size?
-              // RoleCard width/height: w-64 (256px) or w-full.
-              // We need to know the card size.
-              // Cards state has `size` property ("small" or "large").
-              // Small: h-24 (96px)? Large: h-64 (256px)?
-              // Width is usually fixed w-64 (256px).
-              // Let's assume standard width 280px (w-72 in some designs) or 256 (w-64).
-              // Check RoleCard implementation ideally.
-              // For now, let's look at `RoleCard.tsx` later, but assume 250x150 roughly.
-              // Or better, let's use a safe bounding box.
-              // Actually, if we use the same size constants as used in rendering, that's best.
-              // Let's assume w=260, h depends on size.
-
-              // For now, let's use:
-              // Width: 256 (w-64)
-              // Height: Small=100, Large=300?
-              // This is risky without exact dimensions.
-              // But "size should match total area... with additional constant padding".
-
-              // Let's use simplified logic for now: 256 width, and let's say 120/400 height?
-              // We will refine constants if needed.
 
               let maxRight = -Infinity;
               let maxBottom = -Infinity;
@@ -430,7 +496,6 @@ export function useCanvasInteraction(
               };
             }
 
-            // Existing Manual Drag Logic (for tracks without children)
             if (initialPositions[t.id]) {
               return {
                 ...t,
@@ -444,79 +509,134 @@ export function useCanvasInteraction(
         });
       }
     },
-    [setCards, setTracks, setTransform, deleteZoneRef],
+    [setCards, setTracks, setTransform, deleteZoneRef, canvasRef],
   );
 
-  const handleMouseUp = useCallback(() => {
-    const draggingId = draggingIdRef.current;
-    const draggingType = draggingTypeRef.current;
-    const isOverDeleteZone = isOverDeleteZoneRef.current;
-    const initialPositions = initialPositionsRef.current;
-
-    if (draggingId) {
-      if (isOverDeleteZone) {
-        if (draggingType === "card") {
-          // Delete all selected cards that were being dragged
-          const draggedIds = Object.keys(initialPositions);
-          // If draggedIds is empty (e.g. single drag fallback), just delete draggingId
-          if (draggedIds.length > 0) {
-            setCards((prev) => prev.filter((c) => !draggedIds.includes(c.id)));
-            setSelectedIds([]); // Clear selection after delete
-          } else {
-            setCards((prev) => prev.filter((c) => c.id !== draggingId));
-          }
-        } else setTracks((prev) => prev.filter((t) => t.id !== draggingId));
-      } else if (draggingType === "track-create") {
-        // logic removed
-      } else if (draggingType === "new-card") {
-        const draggedNewCard = draggedNewCardRef.current;
-        if (draggedNewCard && !isOverDeleteZone) {
-          setCards((prev) => [...prev, draggedNewCard]);
-        }
-        setDraggedNewCard(null);
+  const handlePointerUp = useCallback(
+    (e: PointerEvent) => {
+      // Update pointer tracking
+      activePointersRef.current.delete(e.pointerId);
+      if (activePointersRef.current.size < 2) {
+        lastPinchDistanceRef.current = null;
+        lastPinchMidpointRef.current = null;
       }
-    }
 
-    setDraggingId(null);
-    setDraggingType(null);
-    setResizingId(null);
-    setResizingSide(null);
-    setIsPanning(false);
-    setIsOverDeleteZone(false);
-    initialPositionsRef.current = {}; // Clear initial positions
+      // Only continue cleanup for the primary pointer
+      if (e.pointerId !== primaryPointerIdRef.current) return;
+      primaryPointerIdRef.current = null;
 
-    // Reset local refs just in case? Not strictly needed as effect will sync nulls
-  }, [setCards, setTracks]);
+      // Background tap detection: no movement = clear selection
+      if (backgroundTouchStartRef.current) {
+        setSelectedIds([]);
+        backgroundTouchStartRef.current = null;
+      }
+
+      const draggingId = draggingIdRef.current;
+      const draggingType = draggingTypeRef.current;
+      const isOverDeleteZone = isOverDeleteZoneRef.current;
+      const initialPositions = initialPositionsRef.current;
+
+      if (draggingId) {
+        if (isOverDeleteZone) {
+          if (draggingType === "card") {
+            const draggedIds = Object.keys(initialPositions);
+            if (draggedIds.length > 0) {
+              setCards((prev) =>
+                prev.filter((c) => !draggedIds.includes(c.id)),
+              );
+              setSelectedIds([]);
+            } else {
+              setCards((prev) => prev.filter((c) => c.id !== draggingId));
+            }
+          } else setTracks((prev) => prev.filter((t) => t.id !== draggingId));
+        } else if (draggingType === "track-create") {
+          // logic removed
+        } else if (draggingType === "new-card") {
+          const draggedNewCard = draggedNewCardRef.current;
+          if (draggedNewCard && !isOverDeleteZone) {
+            setCards((prev) => [...prev, draggedNewCard]);
+          }
+          setDraggedNewCard(null);
+        }
+      }
+
+      setDraggingId(null);
+      setDraggingType(null);
+      setResizingId(null);
+      setResizingSide(null);
+      setIsPanning(false);
+      setIsOverDeleteZone(false);
+      initialPositionsRef.current = {};
+    },
+    [setCards, setTracks],
+  );
 
   useEffect(() => {
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+    // Track pointer starts in capture phase so activePointersRef is up-to-date
+    // when React synthetic handlers run. Only track pointers that start inside canvas.
+    const trackPointerStart = (e: PointerEvent) => {
+      if (
+        canvasRef.current &&
+        canvasRef.current.contains(e.target as Node)
+      ) {
+        activePointersRef.current.set(e.pointerId, {
+          x: e.clientX,
+          y: e.clientY,
+        });
+      }
     };
-  }, [handleMouseMove, handleMouseUp]);
 
-  // Main canvas mouse down used for panning OR creating track
-  const handleMouseDown = (e: React.MouseEvent) => {
-    // Pan Mode
-    if (toolMode === "pan" || e.button === 1) {
+    window.addEventListener("pointerdown", trackPointerStart, true);
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointerdown", trackPointerStart, true);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, [handlePointerMove, handlePointerUp, canvasRef]);
+
+  // Main canvas pointer down handler (background clicks/touches only —
+  // cards and tracks stop propagation before this fires)
+  const handlePointerDown = (e: React.PointerEvent) => {
+    // Mouse middle button = pan
+    if (e.pointerType === "mouse" && e.button === 1) {
+      if (primaryPointerIdRef.current !== null) return;
+      primaryPointerIdRef.current = e.pointerId;
       setIsPanning(true);
+      isPanningRef.current = true;
       const startPoint = { x: e.clientX, y: e.clientY };
       setLastPanPoint(startPoint);
       lastPanPointRef.current = startPoint;
       return;
     }
 
-    // Clear selection if clicking on background
-    if (toolMode === "select" && e.button === 0) {
-      setSelectedIds([]);
+    // Pan mode: any pointer pans
+    if (toolMode === "pan") {
+      if (primaryPointerIdRef.current !== null) return;
+      primaryPointerIdRef.current = e.pointerId;
+      setIsPanning(true);
+      isPanningRef.current = true;
+      const startPoint = { x: e.clientX, y: e.clientY };
+      setLastPanPoint(startPoint);
+      lastPanPointRef.current = startPoint;
+      return;
     }
 
-    // Track Creation Mode REMOVED (now handled by grouping action)
-    if (toolMode === "track") {
-      // No-op or allow selection?
-      // Maybe deselect?
+    // Select mode background interaction
+    if (toolMode === "select") {
+      if (primaryPointerIdRef.current !== null) return;
+      primaryPointerIdRef.current = e.pointerId;
+
+      if (e.pointerType !== "mouse") {
+        // Touch on background: store start, will pan if moved or clear selection if tapped
+        backgroundTouchStartRef.current = { x: e.clientX, y: e.clientY };
+        setLastPanPoint({ x: e.clientX, y: e.clientY });
+        lastPanPointRef.current = { x: e.clientX, y: e.clientY };
+      } else {
+        // Mouse click on background: clear selection immediately
+        setSelectedIds([]);
+      }
     }
   };
 
@@ -539,12 +659,18 @@ export function useCanvasInteraction(
     }
   };
 
-  const startDragNewCard = (e: React.MouseEvent, newCard: Role) => {
+  const startDragNewCard = (e: React.PointerEvent, newCard: Role) => {
+    if (
+      primaryPointerIdRef.current !== null &&
+      primaryPointerIdRef.current !== e.pointerId
+    )
+      return;
+    primaryPointerIdRef.current = e.pointerId;
+
     setDraggingId(newCard.id);
     setDraggingType("new-card");
     setDraggedNewCard(newCard);
 
-    // Mouse position in canvas space
     const mouseX = e.clientX / transform.scale;
     const mouseY = e.clientY / transform.scale;
 
@@ -556,7 +682,6 @@ export function useCanvasInteraction(
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing in an input/textarea
       const activeTag = document.activeElement?.tagName.toLowerCase();
       if (
         activeTag === "input" ||
@@ -566,7 +691,6 @@ export function useCanvasInteraction(
         return;
       }
 
-      // Delete (Delete or Backspace)
       if (e.key === "Delete" || e.key === "Backspace") {
         const selected = selectedIdsRef.current;
         if (selected.length > 0) {
@@ -576,7 +700,6 @@ export function useCanvasInteraction(
         }
       }
 
-      // Copy (Ctrl+C or Meta+C)
       if ((e.ctrlKey || e.metaKey) && e.code === "KeyC") {
         const selected = selectedIdsRef.current;
         if (selected.length > 0) {
@@ -585,7 +708,6 @@ export function useCanvasInteraction(
             data: Role | TrackData;
           }[] = [];
 
-          // Find cards
           const currentCards = cardsRef.current;
           currentCards.forEach((c) => {
             if (selected.includes(c.id)) {
@@ -593,7 +715,6 @@ export function useCanvasInteraction(
             }
           });
 
-          // Find tracks
           const currentTracks = tracksRef.current;
           currentTracks.forEach((t) => {
             if (selected.includes(t.id)) {
@@ -605,7 +726,6 @@ export function useCanvasInteraction(
         }
       }
 
-      // Paste (Ctrl+V or Meta+V)
       if ((e.ctrlKey || e.metaKey) && e.code === "KeyV") {
         const clipboard = clipboardRef.current;
         if (clipboard.length > 0) {
@@ -616,7 +736,6 @@ export function useCanvasInteraction(
           clipboard.forEach((item) => {
             const newId = `${item.type === "track" ? "track-" : ""}${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-            // Apply offset
             const newItem = {
               ...item.data,
               id: newId,
@@ -624,7 +743,6 @@ export function useCanvasInteraction(
               y: item.data.y + GRID_SIZE,
             };
 
-            // Cast generic Item data to specific and push
             if (item.type === "card") {
               newCards.push(newItem as Role);
             } else {
@@ -637,8 +755,6 @@ export function useCanvasInteraction(
           if (newTracks.length > 0)
             setTracks((prev) => [...prev, ...newTracks]);
 
-          // Update clipboard with new items for iterative paste
-          // We need to reconstruct the clipboard structure with new items
           const newClipboard = [
             ...newCards.map((c) => ({ type: "card" as const, data: c })),
             ...newTracks.map((t) => ({ type: "track" as const, data: t })),
@@ -665,7 +781,7 @@ export function useCanvasInteraction(
     handleStartDragCard,
     handleStartDragTrack,
     handleResizeStart,
-    handleMouseDown,
+    handlePointerDown,
     handleWheel,
     handleZoom,
     startDragNewCard,

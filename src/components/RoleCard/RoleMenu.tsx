@@ -30,13 +30,13 @@ export const RoleMenu: FC<RoleMenuProps> = ({
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleOutside = (event: PointerEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setShowMenu(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("pointerdown", handleOutside);
+    return () => document.removeEventListener("pointerdown", handleOutside);
   }, []);
 
   if (variant === "simple") return null;
@@ -44,7 +44,7 @@ export const RoleMenu: FC<RoleMenuProps> = ({
   return (
     <div className="relative" ref={menuRef}>
       <button
-        onMouseDown={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={() => setShowMenu(!showMenu)}
         className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors"
       >
@@ -53,7 +53,7 @@ export const RoleMenu: FC<RoleMenuProps> = ({
       {showMenu && (
         <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-slate-100 shadow-xl rounded-xl py-1 z-[60] animate-in fade-in zoom-in duration-150">
           <button
-            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={() => {
               onToggleSize(roleData.id);
               setShowMenu(false);
@@ -66,7 +66,7 @@ export const RoleMenu: FC<RoleMenuProps> = ({
           <div className="h-px bg-slate-100 my-1" />
           {status === "suggested" && (
             <button
-              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
               onClick={() => {
                 onApprove(roleData.id);
                 setShowMenu(false);
@@ -77,7 +77,7 @@ export const RoleMenu: FC<RoleMenuProps> = ({
             </button>
           )}
           <button
-            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={() => {
               onClear(roleData.id);
               setShowMenu(false);

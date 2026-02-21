@@ -12,7 +12,7 @@ import { Card as CardPrimitive } from "../ui/Card";
 export const RoleCard: FC<{
   roleData: Role;
   isDragging: boolean;
-  onMouseDown: (e: React.MouseEvent<HTMLDivElement>) => void;
+  onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void;
   onPersonDrop: (
     roleId: string,
     personData: { id: string; name: string; imageUrl: string },
@@ -22,18 +22,20 @@ export const RoleCard: FC<{
   onToggleSize: (roleId: string) => void;
   isDanger: boolean;
   isSelected?: boolean;
+  isPersonTouchDragOver?: boolean;
   variant: "simple" | "detailed";
   animate?: boolean;
 }> = ({
   roleData,
   isDragging,
-  onMouseDown,
+  onPointerDown,
   onPersonDrop,
   onApprove,
   onClear,
   onToggleSize,
   isDanger,
   isSelected,
+  isPersonTouchDragOver,
   variant,
   animate = false,
 }) => {
@@ -78,11 +80,12 @@ export const RoleCard: FC<{
       isDragging={isDragging}
       isSelected={isSelected}
       isDanger={isDanger}
-      onMouseDown={onMouseDown}
+      onPointerDown={onPointerDown}
       onDragOver={handleDragOver}
+      data-card-id={roleData.id}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`${cardWidth} ${cardHeight} p-5 ${isOver ? "ring-4 ring-green-400 border-transparent bg-green-50" : ""}`}
+      className={`${cardWidth} ${cardHeight} p-5 ${isOver || isPersonTouchDragOver ? "ring-4 ring-green-400 border-transparent bg-green-50" : ""}`}
       style={{ left: `${x}px`, top: `${y}px`, transformOrigin: "top left" }}
     >
       <CardPrimitive.Header className="mb-2">

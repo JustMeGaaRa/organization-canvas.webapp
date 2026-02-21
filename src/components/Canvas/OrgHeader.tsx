@@ -26,7 +26,7 @@ export const OrgHeader = ({
   return (
     <div
       className="absolute top-6 left-6 z-50"
-      onMouseDown={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
     >
       <div className="relative">
         <div className="bg-white/90 backdrop-blur-sm p-1.5 rounded-2xl border border-slate-200/60 shadow-xl flex items-center gap-3 group">

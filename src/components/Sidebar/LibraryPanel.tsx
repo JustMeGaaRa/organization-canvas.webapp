@@ -17,7 +17,13 @@ interface LibraryPanelProps {
   onAddPersonTemplate: (name: string) => void;
   onDeleteRoleTemplate?: (id: string) => void;
   onDeletePersonTemplate?: (id: string) => void;
-  onRoleDragStart: (e: React.MouseEvent, role: RoleTemplate) => void;
+  onRoleDragStart: (e: React.PointerEvent, role: RoleTemplate) => void;
+  onPersonTouchDragStart?: (
+    person: Person,
+    x: number,
+    y: number,
+    pointerId: number,
+  ) => void;
   onBackup: () => void;
   onRestore: (file: File) => void;
 }
@@ -33,6 +39,7 @@ export const LibraryPanel = ({
   onDeleteRoleTemplate,
   onDeletePersonTemplate,
   onRoleDragStart,
+  onPersonTouchDragStart,
   onBackup,
   onRestore,
 }: LibraryPanelProps) => {
@@ -100,6 +107,7 @@ export const LibraryPanel = ({
             people={filteredPeople}
             onPersonDragStart={handlePersonDragStart}
             onDeletePersonTemplate={onDeletePersonTemplate}
+            onPersonTouchDragStart={onPersonTouchDragStart}
           />
         )}
       </Sidebar.Content>

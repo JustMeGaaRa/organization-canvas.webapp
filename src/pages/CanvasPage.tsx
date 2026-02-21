@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
 import { ChevronLeft } from "lucide-react";
 import { Track } from "../components/Track/Track";
@@ -58,6 +58,15 @@ export const CanvasPage = ({
   const [viewMode, setViewMode] = useState<"structure" | "chart">("chart");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
+  // Touch drag state for person-to-card assignment
+  const [personTouchDrag, setPersonTouchDrag] = useState<{
+    person: Person;
+    x: number;
+    y: number;
+    pointerId: number;
+    overCardId: string | null;
+  } | null>(null);
+
   // Canvas Data & Interaction Hooks
   const {
     cards,
@@ -78,10 +87,9 @@ export const CanvasPage = ({
     isOverDeleteZone,
     selectedIds,
     handleStartDragCard,
-
     handleStartDragTrack,
     handleResizeStart,
-    handleMouseDown,
+    handlePointerDown,
     handleWheel,
     handleZoom,
     startDragNewCard,
@@ -125,6 +133,66 @@ export const CanvasPage = ({
     setToolMode,
   });
 
+  // Track window-level pointer events for person touch drag
+  useEffect(() => {
+    if (!personTouchDrag) return;
+
+    const handleMove = (e: PointerEvent) => {
+      if (e.pointerId !== personTouchDrag.pointerId) return;
+
+      // Hit-test: find card under the touch point (ghost has pointer-events:none)
+      let overCardId: string | null = null;
+      const elements = document.elementsFromPoint(e.clientX, e.clientY);
+      for (const el of elements) {
+        const cardEl = (el as HTMLElement).closest("[data-card-id]");
+        if (cardEl) {
+          overCardId = cardEl.getAttribute("data-card-id");
+          break;
+        }
+      }
+
+      setPersonTouchDrag((prev) =>
+        prev ? { ...prev, x: e.clientX, y: e.clientY, overCardId } : null,
+      );
+    };
+
+    const handleUp = (e: PointerEvent) => {
+      if (e.pointerId !== personTouchDrag.pointerId) return;
+
+      // Hit-test: find a role card under the touch point
+      const elements = document.elementsFromPoint(e.clientX, e.clientY);
+      for (const el of elements) {
+        const cardEl = (el as HTMLElement).closest("[data-card-id]");
+        if (cardEl) {
+          const cardId = cardEl.getAttribute("data-card-id");
+          if (cardId) {
+            setCards((prev) =>
+              prev.map((c) =>
+                c.id === cardId
+                  ? {
+                      ...c,
+                      assignedPerson: personTouchDrag.person,
+                      status: "suggested" as const,
+                    }
+                  : c,
+              ),
+            );
+            break;
+          }
+        }
+      }
+
+      setPersonTouchDrag(null);
+    };
+
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
+    return () => {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+    };
+  }, [personTouchDrag, setCards]);
+
   const toggleCardSize = (cardId: string) => {
     setCards((prev) =>
       prev.map((c) =>
@@ -149,7 +217,6 @@ export const CanvasPage = ({
       transform,
     };
     setHistorySteps((prev) => [...prev, step]);
-    // Optional: Visual feedback could be added here
   };
 
   const restoreStep = (index: number) => {
@@ -172,11 +239,10 @@ export const CanvasPage = ({
     if (mode === "present") {
       if (historySteps.length > 0) {
         setCurrentStepIndex(0);
-        restoreStep(0); // Start from first step
+        restoreStep(0);
       }
-      setIsSidebarOpen(false); // Close sidebar in present mode
+      setIsSidebarOpen(false);
     } else if (toolMode === "present") {
-      // Exiting present mode: restore the latest state
       if (historySteps.length > 0) {
         const lastIndex = historySteps.length - 1;
         restoreStep(lastIndex);
@@ -216,7 +282,6 @@ export const CanvasPage = ({
 
   const handleUngroupTrack = (trackId: string) => {
     setTracks((prev) => prev.filter((t) => t.id !== trackId));
-    // Also remove from selection if present
     const isSelected = selectedIds.includes(trackId);
     if (isSelected) {
       setSelectedIds((prev) => prev.filter((id) => id !== trackId));
@@ -227,7 +292,7 @@ export const CanvasPage = ({
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden relative">
       <main
         ref={canvasRef}
-        onMouseDown={handleMouseDown}
+        onPointerDown={handlePointerDown}
         onWheel={handleWheel}
         className={`flex-grow relative bg-slate-100 overflow-hidden outline-none ${
           toolMode === "pan"
@@ -238,6 +303,7 @@ export const CanvasPage = ({
           backgroundImage: `radial-gradient(#cbd5e1 ${1.5 * transform.scale}px, transparent ${1.5 * transform.scale}px)`,
           backgroundSize: `${GRID_SIZE * transform.scale}px ${GRID_SIZE * transform.scale}px`,
           backgroundPosition: `${transform.x}px ${transform.y}px`,
+          touchAction: "none",
         }}
       >
         {toolMode !== "present" && (
@@ -276,7 +342,7 @@ export const CanvasPage = ({
                   }
                   isResizing={resizingId === track.id}
                   isSelected={selectedIds.includes(track.id)}
-                  onMouseDown={handleStartDragTrack}
+                  onPointerDown={handleStartDragTrack}
                   onResizeStart={handleResizeStart}
                   onNameChange={handleTrackNameChange}
                   onUngroup={handleUngroupTrack}
@@ -302,7 +368,10 @@ export const CanvasPage = ({
                     draggingId === card.id &&
                     draggingType === "card"
                   }
-                  onMouseDown={(e: React.MouseEvent<HTMLDivElement>) =>
+                  isPersonTouchDragOver={
+                    personTouchDrag?.overCardId === card.id
+                  }
+                  onPointerDown={(e: React.PointerEvent<HTMLDivElement>) =>
                     handleStartDragCard(e, card.id)
                   }
                   onPersonDrop={(
@@ -354,7 +423,7 @@ export const CanvasPage = ({
                   draggingId === draggedNewCard.id &&
                   draggingType === "new-card"
                 }
-                onMouseDown={() => {}}
+                onPointerDown={() => {}}
                 onPersonDrop={() => {}}
                 onApprove={() => {}}
                 onClear={() => {}}
@@ -410,6 +479,23 @@ export const CanvasPage = ({
         )}
       </main>
 
+      {/* Person touch-drag ghost */}
+      {personTouchDrag && (
+        <div
+          className="fixed z-[9999] pointer-events-none bg-white border-2 border-green-400 rounded-xl p-3 flex items-center gap-2 shadow-xl -translate-x-1/2 -translate-y-1/2"
+          style={{ left: personTouchDrag.x, top: personTouchDrag.y }}
+        >
+          <img
+            src={personTouchDrag.person.imageUrl}
+            className="w-8 h-8 rounded-full"
+            alt=""
+          />
+          <span className="text-xs font-bold text-slate-700">
+            {personTouchDrag.person.name}
+          </span>
+        </div>
+      )}
+
       <LibraryPanel
         isOpen={isSidebarOpen && toolMode !== "present"}
         onToggle={setIsSidebarOpen}
@@ -441,7 +527,6 @@ export const CanvasPage = ({
         onBackup={handleBackup}
         onRestore={handleRestore}
         onRoleDragStart={(e, roleTemplate) => {
-          // Create the card
           if (!canvasRef.current) return;
           const rect = e.currentTarget.getBoundingClientRect();
           const canvasRect = canvasRef.current.getBoundingClientRect();
@@ -463,6 +548,9 @@ export const CanvasPage = ({
           };
 
           startDragNewCard(e, newCard);
+        }}
+        onPersonTouchDragStart={(person, x, y, pointerId) => {
+          setPersonTouchDrag({ person, x, y, pointerId, overCardId: null });
         }}
       />
     </div>

@@ -10,13 +10,14 @@ interface CardRootProps {
   isDanger?: boolean;
   animate?: boolean;
   onClick?: () => void;
-  onMouseDown?: React.MouseEventHandler;
+  onPointerDown?: React.PointerEventHandler;
   onMouseEnter?: React.MouseEventHandler;
   onMouseLeave?: React.MouseEventHandler;
   onDragOver?: React.DragEventHandler;
   onDragLeave?: React.DragEventHandler;
   onDrop?: React.DragEventHandler;
   style?: React.CSSProperties;
+  "data-card-id"?: string;
 }
 
 const CardRoot: FC<CardRootProps> = ({

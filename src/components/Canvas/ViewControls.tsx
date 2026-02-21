@@ -9,7 +9,7 @@ export const ViewControls = ({ viewMode, setViewMode }: ViewControlsProps) => {
   return (
     <div
       className="absolute top-6 left-1/2 -translate-x-1/2 z-40"
-      onMouseDown={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
     >
       <div className="flex bg-white/90 backdrop-blur-sm p-1.5 rounded-2xl border border-slate-200/60 shadow-xl">
         <button
