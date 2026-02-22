@@ -1,17 +1,17 @@
-import { Minus, Plus, Focus } from "lucide-react";
+import { Minus, Plus, Focus, Maximize2 } from "lucide-react";
 
 interface ZoomControlsProps {
-  scale: number;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onReset: () => void;
+  onFitToScreen: () => void;
 }
 
 export const ZoomControls = ({
-  scale,
   onZoomIn,
   onZoomOut,
   onReset,
+  onFitToScreen,
 }: ZoomControlsProps) => {
   return (
     <div
@@ -27,12 +27,6 @@ export const ZoomControls = ({
           <Minus size={16} />
         </button>
 
-        <div className="px-2 min-w-[46px] text-center">
-          <span className="text-[10px] font-bold tracking-widest text-slate-500">
-            {Math.round(scale * 100)}%
-          </span>
-        </div>
-
         <button
           onClick={onZoomIn}
           className="p-2 rounded-full text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
@@ -41,13 +35,20 @@ export const ZoomControls = ({
           <Plus size={16} />
         </button>
 
-        {/* Separator before Reset */}
         <div className="w-px h-4 bg-slate-200 mx-0.5" />
+
+        <button
+          onClick={onFitToScreen}
+          className="p-2 rounded-full text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+          title="Fit to screen"
+        >
+          <Maximize2 size={16} />
+        </button>
 
         <button
           onClick={onReset}
           className="p-2 rounded-full bg-slate-100 text-slate-500 hover:text-slate-900 hover:bg-slate-200 transition-colors"
-          title="Reset zoom"
+          title="Reset zoom (100%)"
         >
           <Focus size={16} />
         </button>

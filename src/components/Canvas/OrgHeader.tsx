@@ -56,9 +56,19 @@ export const OrgHeader = ({
       className="absolute top-safe-6 left-safe-6 [@media(max-width:1023px)]:left-4 [@media(max-width:1023px)]:right-4 z-50"
       onPointerDown={(e) => e.stopPropagation()}
     >
-      <div className="relative">
-        {/* ── Main pill ── */}
-        <div className="bg-white/90 backdrop-blur-sm p-1.5 rounded-full border border-slate-200/60 shadow-xl flex items-center gap-2">
+      {/*
+       * Single unified container that switches between:
+       *   closed → rounded-full pill
+       *   open   → rounded-2xl command-center panel (wraps the editable + org list)
+       * Border-radius switches instantly (no transition) to avoid the pill→square flash.
+       */}
+      <div
+        className={`bg-white/90 backdrop-blur-sm border border-slate-200/60 shadow-xl overflow-hidden ${
+          isOrgMenuOpen ? "rounded-2xl" : "rounded-full"
+        }`}
+      >
+        {/* ── Main row (always visible) ── */}
+        <div className="flex items-center gap-2 p-1.5">
 
           {/* Menu button */}
           <button
@@ -177,9 +187,12 @@ export const OrgHeader = ({
           </div>
         </div>
 
-        {/* ── Organization Switcher Dropdown ── */}
+        {/* ── Organization Switcher (inline, command-center style) ── */}
         {isOrgMenuOpen && (
-          <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="px-2 pb-2 animate-in fade-in duration-150 min-w-[240px]">
+            {/* Divider */}
+            <div className="h-px bg-slate-100 mx-1 mb-1.5" />
+
             <div className="max-h-60 overflow-y-auto">
               {orgs.map((o) => (
                 <div
@@ -188,7 +201,7 @@ export const OrgHeader = ({
                     switchOrg(o.id);
                     setIsOrgMenuOpen(false);
                   }}
-                  className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all ${
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all ${
                     o.id === currentOrgId
                       ? "bg-blue-50 border border-blue-100"
                       : "hover:bg-slate-50 border border-transparent"
@@ -221,13 +234,14 @@ export const OrgHeader = ({
                 </div>
               ))}
             </div>
-            <div className="mt-2 pt-2 border-t border-slate-100">
+
+            <div className="mt-1 pt-1.5 border-t border-slate-100">
               <button
                 onClick={() => {
                   createNewOrg();
                   setIsOrgMenuOpen(false);
                 }}
-                className="w-full flex items-center gap-3 p-3 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all group"
+                className="w-full flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all group"
               >
                 <div className="p-1 bg-slate-100 group-hover:bg-blue-100 rounded-lg transition-colors">
                   <Plus size={14} />

@@ -81,7 +81,7 @@ export const Toolbar = forwardRef<HTMLDivElement, ToolbarProps>(
               {toolMode === "present" ? (
                 <>
                   <div className="flex items-center gap-2 px-2 text-xs font-bold text-slate-500">
-                    <span className="bg-slate-100 px-2 py-1 rounded text-slate-600">
+                    <span className="bg-slate-100 px-2.5 py-1 rounded-full text-slate-600 text-[11px] font-bold tabular-nums">
                       {currentStepIndex + 1} / {stepCount}
                     </span>
                   </div>
