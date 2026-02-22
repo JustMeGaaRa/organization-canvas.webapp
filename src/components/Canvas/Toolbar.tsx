@@ -45,27 +45,35 @@ export const Toolbar = forwardRef<HTMLDivElement, ToolbarProps>(
   ) => {
     return (
       <div
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-40"
+        className="absolute bottom-safe-8 left-1/2 -translate-x-1/2 z-40"
         onPointerDown={(e) => e.stopPropagation()}
       >
         <div
           ref={ref}
-          className={`flex items-center p-1.5 rounded-2xl shadow-xl transition-all duration-300 ${
+          className={`flex items-center p-1.5 rounded-full shadow-xl transition-colors duration-200 ${
             isDragging
               ? isOverDeleteZone
-                ? "bg-red-500 scale-110 w-48 justify-center text-white"
-                : "bg-slate-900 w-48 justify-center text-white"
+                ? "bg-red-500 border border-red-500"
+                : "bg-white/90 backdrop-blur-sm border border-red-200"
               : "bg-white/90 backdrop-blur-sm border border-slate-200/60"
           }`}
         >
           {isDragging ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 px-3 py-2">
               <Trash2
-                size={20}
-                className={isOverDeleteZone ? "animate-bounce" : ""}
+                size={16}
+                className={
+                  isOverDeleteZone
+                    ? "text-white animate-bounce"
+                    : "text-red-400"
+                }
               />
-              <span className="text-xs font-bold uppercase tracking-widest">
-                Delete
+              <span
+                className={`text-[10px] font-bold uppercase tracking-widest whitespace-nowrap ${
+                  isOverDeleteZone ? "text-white" : "text-red-400"
+                }`}
+              >
+                {isOverDeleteZone ? "Release to delete" : "Drop here to delete"}
               </span>
             </div>
           ) : (
@@ -83,25 +91,26 @@ export const Toolbar = forwardRef<HTMLDivElement, ToolbarProps>(
                     disabled={currentStepIndex === 0}
                     variant="nav"
                     icon={<SkipBack size={16} />}
-                    label="Prev Step"
+                    label="Prev"
                   />
                   <ToolbarPrimitive.Item
                     onClick={onNextStep}
                     disabled={currentStepIndex >= stepCount - 1}
                     variant="nav"
                     icon={<SkipForward size={16} />}
-                    label="Next Step"
+                    label="Next"
                   />
                   <ToolbarPrimitive.Separator />
                   <ToolbarPrimitive.Item
                     onClick={() => setToolMode("select")}
                     variant="danger"
                     icon={<StopCircle size={16} />}
-                    label="End Presentation"
+                    label="End"
                   />
                 </>
               ) : (
                 <>
+                  {/* ── Tool group ── */}
                   <ToolbarPrimitive.Item
                     onClick={() => setToolMode("select")}
                     isActive={toolMode === "select"}
@@ -120,6 +129,8 @@ export const Toolbar = forwardRef<HTMLDivElement, ToolbarProps>(
                     icon={<Square size={16} />}
                     label="Track"
                   />
+
+                  {/* ── Record group ── */}
                   <ToolbarPrimitive.Separator />
                   <ToolbarPrimitive.Item
                     onClick={onCapture}
@@ -135,6 +146,8 @@ export const Toolbar = forwardRef<HTMLDivElement, ToolbarProps>(
                     icon={<Trash2 size={16} />}
                     label="Reset"
                   />
+
+                  {/* ── Present ── */}
                   <ToolbarPrimitive.Separator />
                   <ToolbarPrimitive.Item
                     onClick={() => setToolMode("present")}

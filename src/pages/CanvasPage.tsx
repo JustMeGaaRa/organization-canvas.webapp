@@ -315,6 +315,13 @@ export const CanvasPage = ({
             switchOrg={switchOrg}
             deleteOrg={deleteOrg}
             createNewOrg={createNewOrg}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            onOpenLibrary={() => setIsSidebarOpen((prev) => !prev)}
+            isSidebarOpen={isSidebarOpen}
+            onNavigateToLibrary={onNavigateToLibrary}
+            onBackup={handleBackup}
+            onRestore={handleRestore}
           />
         )}
 
@@ -468,7 +475,7 @@ export const CanvasPage = ({
         {toolMode !== "present" && (
           <button
             onClick={() => setIsSidebarOpen(true)}
-            className={`absolute top-6 right-6 p-2 bg-white border border-slate-200 rounded-full shadow-lg hover:bg-slate-50 z-30 transition-all duration-300 ${
+            className={`absolute top-safe-6 right-safe-6 p-3 bg-white border border-slate-200 rounded-full shadow-lg hover:bg-slate-50 z-30 transition-all duration-300 [@media(max-width:1023px)]:hidden ${
               isSidebarOpen
                 ? "opacity-0 scale-90 pointer-events-none"
                 : "opacity-100 scale-100"
@@ -548,9 +555,13 @@ export const CanvasPage = ({
           };
 
           startDragNewCard(e, newCard);
+          // Close the sidebar immediately so the full canvas is free for dragging
+          setIsSidebarOpen(false);
         }}
         onPersonTouchDragStart={(person, x, y, pointerId) => {
           setPersonTouchDrag({ person, x, y, pointerId, overCardId: null });
+          // Close the sidebar immediately so the full canvas is free for dragging
+          setIsSidebarOpen(false);
         }}
       />
     </div>

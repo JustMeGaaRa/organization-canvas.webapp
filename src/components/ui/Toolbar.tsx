@@ -42,7 +42,7 @@ const ToolbarItem: FC<ToolbarItemProps> = ({
   ...props
 }) => {
   const baseStyles =
-    "relative flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold uppercase transition-all whitespace-nowrap";
+    "relative flex items-center gap-2 px-3 py-2 [@media(hover:none)]:py-3 rounded-full text-[10px] font-bold uppercase tracking-widest transition-colors whitespace-nowrap";
 
   const variants = {
     default: isActive

@@ -112,7 +112,7 @@ export const LibraryPanel = ({
         )}
       </Sidebar.Content>
 
-      <Sidebar.Footer>
+      <Sidebar.Footer className="[@media(max-width:1023px)]:hidden">
         <div className="flex gap-2 w-full">
           <button
             onClick={onNavigateToLibrary}

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Menu, Trash2, Plus } from "lucide-react";
+import { useState, useRef } from "react";
+import { Menu, Trash2, Plus, Briefcase, User, BookOpen, Settings2, Download, Upload } from "lucide-react";
 import type { Org } from "../../types";
 
 interface OrgHeaderProps {
@@ -10,6 +10,20 @@ interface OrgHeaderProps {
   switchOrg: (id: string) => void;
   deleteOrg: (e: React.MouseEvent, id: string) => void;
   createNewOrg: () => void;
+  /** Touch-only — current view mode (replaces the standalone ViewControls pill) */
+  viewMode?: "structure" | "chart";
+  /** Touch-only — called when the user taps a view-mode button in the bar */
+  onViewModeChange?: (mode: "structure" | "chart") => void;
+  /** Touch-only — toggles the Library sidebar */
+  onOpenLibrary?: () => void;
+  /** Touch-only — drives the active state of the Library button */
+  isSidebarOpen?: boolean;
+  /** Touch-only — navigate to library management page */
+  onNavigateToLibrary?: () => void;
+  /** Touch-only — backup handler */
+  onBackup?: () => void;
+  /** Touch-only — restore handler */
+  onRestore?: (file: File) => void;
 }
 
 export const OrgHeader = ({
@@ -20,55 +34,178 @@ export const OrgHeader = ({
   switchOrg,
   deleteOrg,
   createNewOrg,
+  viewMode,
+  onViewModeChange,
+  onOpenLibrary,
+  isSidebarOpen,
+  onNavigateToLibrary,
+  onBackup,
+  onRestore,
 }: OrgHeaderProps) => {
   const [isOrgMenuOpen, setIsOrgMenuOpen] = useState(false);
+  const restoreInputRef = useRef<HTMLInputElement>(null);
 
   return (
+    /*
+     * ≥ 1024 px (desktop / landscape tablet):  compact left-anchored pill.
+     * < 1024 px (portrait tablet / narrow win): stretches inset-x-4, becomes
+     *                                            a single unified top bar.
+     * Matches the sidebar and ViewControls breakpoint (max-width: 1023px).
+     */
     <div
-      className="absolute top-6 left-6 z-50"
+      className="absolute top-safe-6 left-safe-6 [@media(max-width:1023px)]:left-4 [@media(max-width:1023px)]:right-4 z-50"
       onPointerDown={(e) => e.stopPropagation()}
     >
       <div className="relative">
-        <div className="bg-white/90 backdrop-blur-sm p-1.5 rounded-2xl border border-slate-200/60 shadow-xl flex items-center gap-3 group">
+        {/* ── Main pill ── */}
+        <div className="bg-white/90 backdrop-blur-sm p-1.5 rounded-full border border-slate-200/60 shadow-xl flex items-center gap-2">
+
+          {/* Menu button */}
           <button
             onClick={() => setIsOrgMenuOpen(!isOrgMenuOpen)}
-            className={`p-2 rounded-xl transition-colors ${isOrgMenuOpen ? "bg-slate-900 text-white" : "bg-blue-50 text-blue-600 hover:bg-blue-100"}`}
+            className={`p-2 rounded-full transition-colors flex-shrink-0 ${
+              isOrgMenuOpen
+                ? "bg-slate-900 text-white"
+                : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+            }`}
           >
-            <Menu size={18} />
+            <Menu size={16} />
           </button>
-          <div className="flex flex-col">
+
+          {/* Org name + label */}
+          <div className="flex flex-col min-w-0">
             <input
               type="text"
               value={orgName}
               onChange={(e) => updateOrgName(e.target.value)}
-              className="bg-transparent border-none outline-none text-sm font-bold text-slate-800 p-0 focus:ring-0 w-48"
+              className="bg-transparent border-none outline-none text-sm font-bold text-slate-800 p-0 focus:ring-0 w-28 md:w-44"
               placeholder="Organization Name"
             />
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
                 Organization
               </span>
-              <div className="w-1 h-1 rounded-full bg-green-500" />
+              <div className="w-1 h-1 rounded-full bg-green-500 flex-shrink-0" />
             </div>
+          </div>
+
+          {/*
+           * ── Touch-only right section ───────────────────────────────────────
+           * ml-auto pushes this group to the far right of the full-width bar.
+           * Hidden entirely on desktop (hover:hover) so the pill stays compact.
+           */}
+          <div className="hidden [@media(max-width:1023px)]:flex items-center gap-1 ml-auto">
+
+            {/* View-mode toggle (replaces the standalone ViewControls pill) */}
+            <button
+              onClick={() => onViewModeChange?.("structure")}
+              title="Structure view"
+              className={`p-2 rounded-full transition-colors ${
+                viewMode === "structure"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+              }`}
+            >
+              <Briefcase size={16} />
+            </button>
+            <button
+              onClick={() => onViewModeChange?.("chart")}
+              title="Chart view"
+              className={`p-2 rounded-full transition-colors ${
+                viewMode === "chart"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+              }`}
+            >
+              <User size={16} />
+            </button>
+
+            {/* Separator */}
+            <div className="w-px h-5 bg-slate-200 mx-0.5" />
+
+            {/* Utility buttons: Manage / Backup / Restore */}
+            <button
+              onClick={onNavigateToLibrary}
+              title="Manage Assets"
+              className="p-2 rounded-full transition-colors text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+            >
+              <Settings2 size={16} />
+            </button>
+            <button
+              onClick={onBackup}
+              title="Backup Organization"
+              className="p-2 rounded-full transition-colors text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+            >
+              <Download size={16} />
+            </button>
+            <button
+              onClick={() => restoreInputRef.current?.click()}
+              title="Restore Organization"
+              className="p-2 rounded-full transition-colors text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+            >
+              <Upload size={16} />
+            </button>
+            <input
+              type="file"
+              ref={restoreInputRef}
+              className="hidden"
+              accept=".json"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  onRestore?.(file);
+                  e.target.value = "";
+                }
+              }}
+            />
+
+            {/* Separator */}
+            <div className="w-px h-5 bg-slate-200 mx-0.5" />
+
+            {/* Library toggle (replaces the floating sidebar open button) */}
+            <button
+              onClick={onOpenLibrary}
+              title="Library"
+              className={`p-2 rounded-full transition-colors ${
+                isSidebarOpen
+                  ? "bg-slate-900 text-white"
+                  : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+              }`}
+            >
+              <BookOpen size={16} />
+            </button>
           </div>
         </div>
 
-        {/* Organization Switcher Menu */}
+        {/* ── Organization Switcher Dropdown ── */}
         {isOrgMenuOpen && (
           <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="max-h-60 overflow-y-auto">
               {orgs.map((o) => (
                 <div
                   key={o.id}
-                  onClick={() => switchOrg(o.id)}
-                  className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all ${o.id === currentOrgId ? "bg-blue-50 border border-blue-100" : "hover:bg-slate-50 border border-transparent"}`}
+                  onClick={() => {
+                    switchOrg(o.id);
+                    setIsOrgMenuOpen(false);
+                  }}
+                  className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all ${
+                    o.id === currentOrgId
+                      ? "bg-blue-50 border border-blue-100"
+                      : "hover:bg-slate-50 border border-transparent"
+                  }`}
                 >
                   <div className="flex items-center gap-3 overflow-hidden">
                     <div
-                      className={`w-2 h-2 rounded-full flex-shrink-0 ${o.id === currentOrgId ? "bg-blue-500" : "bg-slate-200"}`}
+                      className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                        o.id === currentOrgId ? "bg-blue-500" : "bg-slate-200"
+                      }`}
                     />
                     <span
-                      className={`text-xs font-bold truncate ${o.id === currentOrgId ? "text-blue-700" : "text-slate-600"}`}
+                      className={`text-xs font-bold truncate ${
+                        o.id === currentOrgId
+                          ? "text-blue-700"
+                          : "text-slate-600"
+                      }`}
                     >
                       {o.name}
                     </span>
