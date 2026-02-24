@@ -213,14 +213,22 @@ export function useCanvasInteraction(
 
     // Capture initial positions for all selected cards and tracks for multi-drag
     const initialPos: Record<string, { x: number; y: number }> = {};
-    cards.forEach((c) => {
-      if (activeSelectedIds.includes(c.id)) {
-        initialPos[c.id] = { x: c.x, y: c.y };
-      }
-    });
+    const cardsMap = new Map(cards.map((c) => [c.id, c]));
+
     tracks.forEach((t) => {
       if (activeSelectedIds.includes(t.id)) {
         initialPos[t.id] = { x: t.x, y: t.y };
+        t.containedCardIds?.forEach((cid) => {
+          const card = cardsMap.get(cid);
+          if (card) {
+            initialPos[cid] = { x: card.x, y: card.y };
+          }
+        });
+      }
+    });
+    cards.forEach((c) => {
+      if (activeSelectedIds.includes(c.id)) {
+        initialPos[c.id] = { x: c.x, y: c.y };
       }
     });
     initialPositionsRef.current = initialPos;
@@ -238,53 +246,52 @@ export function useCanvasInteraction(
     e.stopPropagation();
     primaryPointerIdRef.current = e.pointerId;
 
+    let finalSelectedIds = selectedIds;
+
     if (isSelectionModeRef.current) {
-      let newSelectedIds = selectedIds;
       if (selectedIds.includes(trackId)) {
         // Just dragging, no selection toggle on pointerDown
       } else {
-        newSelectedIds = [...selectedIds, trackId];
-        setSelectedIds(newSelectedIds);
+        finalSelectedIds = [...selectedIds, trackId];
       }
     } else {
       dragStartPointRef.current = { x: e.clientX, y: e.clientY };
 
       // Selection Logic for Non-Selection Mode
-      let newSelectedIds = selectedIds;
       if ((e.ctrlKey || e.metaKey) && e.pointerType === "mouse") {
         if (selectedIds.includes(trackId)) {
-          newSelectedIds = selectedIds.filter((id) => id !== trackId);
-          setSelectedIds(newSelectedIds);
+          finalSelectedIds = selectedIds.filter((id) => id !== trackId);
+          setSelectedIds(finalSelectedIds);
           primaryPointerIdRef.current = null;
-          if (newSelectedIds.length === 0) setIsSelectionMode(false);
+          if (finalSelectedIds.length === 0) setIsSelectionMode(false);
           return;
         } else {
-          newSelectedIds = [...selectedIds, trackId];
+          finalSelectedIds = [...selectedIds, trackId];
           setIsSelectionMode(true);
         }
       } else {
         if (!selectedIds.includes(trackId)) {
-          newSelectedIds = [trackId];
+          finalSelectedIds = [trackId];
+        }
+
+        if (!isSelectionModeRef.current) {
+          longPressTimerRef.current = window.setTimeout(() => {
+            setIsSelectionMode(true);
+            setSelectedIds((prev) =>
+              prev.includes(trackId) ? prev : [...prev, trackId],
+            );
+            setDraggingId(null);
+            setDraggingType(null);
+            longPressTimerRef.current = null;
+            primaryPointerIdRef.current = null;
+          }, 500);
         }
       }
-      setSelectedIds(newSelectedIds);
-
-      if (!isSelectionModeRef.current) {
-        longPressTimerRef.current = window.setTimeout(() => {
-          setIsSelectionMode(true);
-          setSelectedIds((prev) =>
-            prev.includes(trackId) ? prev : [...prev, trackId],
-          );
-          setDraggingId(null);
-          setDraggingType(null);
-          longPressTimerRef.current = null;
-          primaryPointerIdRef.current = null;
-        }, 500);
-      }
     }
+    setSelectedIds(finalSelectedIds);
 
     // Capture the current selected state to use for dragging positions
-    const activeSelectedIds = selectedIdsRef.current;
+    const activeSelectedIds = finalSelectedIds;
 
     const track = tracks.find((t) => t.id === trackId);
     if (!track) return;
