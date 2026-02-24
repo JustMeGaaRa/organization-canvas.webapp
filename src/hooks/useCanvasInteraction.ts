@@ -36,6 +36,7 @@ export function useCanvasInteraction(
   const [lastPanPoint, setLastPanPoint] = useState<Point>({ x: 0, y: 0 });
   const [isOverDeleteZone, setIsOverDeleteZone] = useState(false);
 
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const initialPositionsRef = useRef<Record<string, { x: number; y: number }>>(
     {},
@@ -66,6 +67,9 @@ export function useCanvasInteraction(
   const primaryPointerIdRef = useRef<number | null>(null);
   // For detecting background tap vs pan-drag on touch
   const backgroundTouchStartRef = useRef<Point | null>(null);
+  const isSelectionModeRef = useRef(isSelectionMode);
+  const longPressTimerRef = useRef<number | null>(null);
+  const dragStartPointRef = useRef<{ x: number; y: number } | null>(null);
 
   // Sync refs
   useEffect(() => {
@@ -107,6 +111,9 @@ export function useCanvasInteraction(
   useEffect(() => {
     draggedNewCardRef.current = draggedNewCard;
   }, [draggedNewCard]);
+  useEffect(() => {
+    isSelectionModeRef.current = isSelectionMode;
+  }, [isSelectionMode]);
 
   // Zoom Logic
   const handleZoom = useCallback(
@@ -125,7 +132,9 @@ export function useCanvasInteraction(
 
   // Stable ref so pinch handler can call it without re-attaching listeners
   const handleZoomRef = useRef(handleZoom);
-  handleZoomRef.current = handleZoom;
+  useEffect(() => {
+    handleZoomRef.current = handleZoom;
+  }, [handleZoom]);
 
   const handleStartDragCard = (e: React.PointerEvent, cardId: string) => {
     if (toolMode !== "select") return;
@@ -139,44 +148,78 @@ export function useCanvasInteraction(
     e.stopPropagation();
     primaryPointerIdRef.current = e.pointerId;
 
-    // Selection Logic
-    let newSelectedIds = selectedIds;
-    if ((e.ctrlKey || e.metaKey) && e.pointerType === "mouse") {
+    let finalSelectedIds = selectedIds;
+
+    if (isSelectionModeRef.current) {
       if (selectedIds.includes(cardId)) {
-        newSelectedIds = selectedIds.filter((id) => id !== cardId);
-        setSelectedIds(newSelectedIds);
-        primaryPointerIdRef.current = null;
-        return;
+        // If clicking an already selected card, just drag ALL selected cards.
+        // Deselection happens on click (pointerUp without moving) or we can just leave it to toggle on up,
+        // but for now, to support drag, we DO NOT toggle selection here if it's already selected.
+        // We'll just initiate the drag.
       } else {
-        newSelectedIds = [...selectedIds, cardId];
+        finalSelectedIds = [...selectedIds, cardId];
       }
     } else {
-      if (!selectedIds.includes(cardId)) {
-        newSelectedIds = [cardId];
+      dragStartPointRef.current = { x: e.clientX, y: e.clientY };
+
+      // Selection Logic
+      if ((e.ctrlKey || e.metaKey) && e.pointerType === "mouse") {
+        if (selectedIds.includes(cardId)) {
+          finalSelectedIds = selectedIds.filter((id) => id !== cardId);
+          setSelectedIds(finalSelectedIds);
+          primaryPointerIdRef.current = null;
+          if (finalSelectedIds.length === 0) setIsSelectionMode(false);
+          return;
+        } else {
+          finalSelectedIds = [...selectedIds, cardId];
+          setIsSelectionMode(true);
+        }
+      } else {
+        if (!selectedIds.includes(cardId)) {
+          finalSelectedIds = [cardId];
+        }
+
+        if (!isSelectionModeRef.current) {
+          longPressTimerRef.current = window.setTimeout(() => {
+            setIsSelectionMode(true);
+            setSelectedIds((prev) =>
+              prev.includes(cardId) ? prev : [...prev, cardId],
+            );
+            setDraggingId(null);
+            setDraggingType(null);
+            longPressTimerRef.current = null;
+            primaryPointerIdRef.current = null;
+          }, 500);
+        }
       }
     }
-    setSelectedIds(newSelectedIds);
+    setSelectedIds(finalSelectedIds);
+
+    const activeSelectedIds = finalSelectedIds;
 
     const card = cards.find((c) => c.id === cardId);
     if (!card) return;
 
     setDraggingId(cardId);
+    draggingIdRef.current = cardId;
     setDraggingType("card");
+    draggingTypeRef.current = "card";
     const newOffset = {
       x: e.clientX / transform.scale - card.x,
       y: e.clientY / transform.scale - card.y,
     };
     setOffset(newOffset);
+    offsetRef.current = newOffset;
 
     // Capture initial positions for all selected cards and tracks for multi-drag
     const initialPos: Record<string, { x: number; y: number }> = {};
     cards.forEach((c) => {
-      if (newSelectedIds.includes(c.id)) {
+      if (activeSelectedIds.includes(c.id)) {
         initialPos[c.id] = { x: c.x, y: c.y };
       }
     });
     tracks.forEach((t) => {
-      if (newSelectedIds.includes(t.id)) {
+      if (activeSelectedIds.includes(t.id)) {
         initialPos[t.id] = { x: t.x, y: t.y };
       }
     });
@@ -195,41 +238,74 @@ export function useCanvasInteraction(
     e.stopPropagation();
     primaryPointerIdRef.current = e.pointerId;
 
-    // Selection Logic
-    let newSelectedIds = selectedIds;
-    if ((e.ctrlKey || e.metaKey) && e.pointerType === "mouse") {
+    if (isSelectionModeRef.current) {
+      let newSelectedIds = selectedIds;
       if (selectedIds.includes(trackId)) {
-        newSelectedIds = selectedIds.filter((id) => id !== trackId);
-        setSelectedIds(newSelectedIds);
-        primaryPointerIdRef.current = null;
-        return;
+        // Just dragging, no selection toggle on pointerDown
       } else {
         newSelectedIds = [...selectedIds, trackId];
+        setSelectedIds(newSelectedIds);
       }
     } else {
-      if (!selectedIds.includes(trackId)) {
-        newSelectedIds = [trackId];
+      dragStartPointRef.current = { x: e.clientX, y: e.clientY };
+
+      // Selection Logic for Non-Selection Mode
+      let newSelectedIds = selectedIds;
+      if ((e.ctrlKey || e.metaKey) && e.pointerType === "mouse") {
+        if (selectedIds.includes(trackId)) {
+          newSelectedIds = selectedIds.filter((id) => id !== trackId);
+          setSelectedIds(newSelectedIds);
+          primaryPointerIdRef.current = null;
+          if (newSelectedIds.length === 0) setIsSelectionMode(false);
+          return;
+        } else {
+          newSelectedIds = [...selectedIds, trackId];
+          setIsSelectionMode(true);
+        }
+      } else {
+        if (!selectedIds.includes(trackId)) {
+          newSelectedIds = [trackId];
+        }
+      }
+      setSelectedIds(newSelectedIds);
+
+      if (!isSelectionModeRef.current) {
+        longPressTimerRef.current = window.setTimeout(() => {
+          setIsSelectionMode(true);
+          setSelectedIds((prev) =>
+            prev.includes(trackId) ? prev : [...prev, trackId],
+          );
+          setDraggingId(null);
+          setDraggingType(null);
+          longPressTimerRef.current = null;
+          primaryPointerIdRef.current = null;
+        }, 500);
       }
     }
-    setSelectedIds(newSelectedIds);
+
+    // Capture the current selected state to use for dragging positions
+    const activeSelectedIds = selectedIdsRef.current;
 
     const track = tracks.find((t) => t.id === trackId);
     if (!track) return;
 
     setDraggingId(trackId);
+    draggingIdRef.current = trackId;
     setDraggingType("track");
+    draggingTypeRef.current = "track";
     const newOffset = {
       x: e.clientX / transform.scale - track.x,
       y: e.clientY / transform.scale - track.y,
     };
     setOffset(newOffset);
+    offsetRef.current = newOffset;
 
     // Capture initial positions for all selected tracks or cards
     const initialPos: Record<string, { x: number; y: number }> = {};
     const cardsMap = new Map(cards.map((c) => [c.id, c]));
 
     tracks.forEach((t) => {
-      if (newSelectedIds.includes(t.id)) {
+      if (activeSelectedIds.includes(t.id)) {
         initialPos[t.id] = { x: t.x, y: t.y };
         t.containedCardIds?.forEach((cid) => {
           const card = cardsMap.get(cid);
@@ -240,7 +316,7 @@ export function useCanvasInteraction(
       }
     });
     cards.forEach((c) => {
-      if (newSelectedIds.includes(c.id)) {
+      if (activeSelectedIds.includes(c.id)) {
         initialPos[c.id] = { x: c.x, y: c.y };
       }
     });
@@ -261,7 +337,9 @@ export function useCanvasInteraction(
       return;
     primaryPointerIdRef.current = e.pointerId;
     setResizingId(trackId);
+    resizingIdRef.current = trackId;
     setResizingSide(side);
+    resizingSideRef.current = side;
   };
 
   // Main pointer move handler (window level)
@@ -288,16 +366,11 @@ export function useCanvasInteraction(
           lastPinchMidpointRef.current !== null
         ) {
           // Pinch zoom
-          const zoomDelta =
-            (distance - lastPinchDistanceRef.current) * 0.003;
+          const zoomDelta = (distance - lastPinchDistanceRef.current) * 0.003;
           const canvas = canvasRef.current;
           if (canvas) {
             const rect = canvas.getBoundingClientRect();
-            handleZoomRef.current(
-              zoomDelta,
-              midX - rect.left,
-              midY - rect.top,
-            );
+            handleZoomRef.current(zoomDelta, midX - rect.left, midY - rect.top);
           }
           // Pan from midpoint movement
           const panDx = midX - lastPinchMidpointRef.current.x;
@@ -322,6 +395,17 @@ export function useCanvasInteraction(
         e.pointerId !== primaryPointerIdRef.current
       )
         return;
+
+      if (longPressTimerRef.current && dragStartPointRef.current) {
+        const dist = Math.hypot(
+          e.clientX - dragStartPointRef.current.x,
+          e.clientY - dragStartPointRef.current.y,
+        );
+        if (dist > 5) {
+          window.clearTimeout(longPressTimerRef.current);
+          longPressTimerRef.current = null;
+        }
+      }
 
       // Background touch: lazy pan start (wait for movement threshold)
       const bgTouchStart = backgroundTouchStartRef.current;
@@ -525,6 +609,11 @@ export function useCanvasInteraction(
       if (e.pointerId !== primaryPointerIdRef.current) return;
       primaryPointerIdRef.current = null;
 
+      if (longPressTimerRef.current) {
+        window.clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+
       // Background tap detection: no movement = clear selection
       if (backgroundTouchStartRef.current) {
         setSelectedIds([]);
@@ -557,6 +646,24 @@ export function useCanvasInteraction(
             setCards((prev) => [...prev, draggedNewCard]);
           }
           setDraggedNewCard(null);
+        } else if (isSelectionModeRef.current && dragStartPointRef.current) {
+          // If we are in selection mode, and we didn't drag it, toggle selection
+          const dist = Math.hypot(
+            e.clientX - dragStartPointRef.current.x,
+            e.clientY - dragStartPointRef.current.y,
+          );
+
+          if (dist < 5) {
+            const selected = selectedIdsRef.current;
+            let newSelectedIds = selected;
+            if (selected.includes(draggingId)) {
+              newSelectedIds = selected.filter((id) => id !== draggingId);
+            } else {
+              newSelectedIds = [...selected, draggingId];
+            }
+            setSelectedIds(newSelectedIds);
+            if (newSelectedIds.length === 0) setIsSelectionMode(false);
+          }
         }
       }
 
@@ -567,6 +674,7 @@ export function useCanvasInteraction(
       setIsPanning(false);
       setIsOverDeleteZone(false);
       initialPositionsRef.current = {};
+      dragStartPointRef.current = null;
     },
     [setCards, setTracks],
   );
@@ -575,10 +683,7 @@ export function useCanvasInteraction(
     // Track pointer starts in capture phase so activePointersRef is up-to-date
     // when React synthetic handlers run. Only track pointers that start inside canvas.
     const trackPointerStart = (e: PointerEvent) => {
-      if (
-        canvasRef.current &&
-        canvasRef.current.contains(e.target as Node)
-      ) {
+      if (canvasRef.current && canvasRef.current.contains(e.target as Node)) {
         activePointersRef.current.set(e.pointerId, {
           x: e.clientX,
           y: e.clientY,
@@ -628,6 +733,13 @@ export function useCanvasInteraction(
       if (primaryPointerIdRef.current !== null) return;
       primaryPointerIdRef.current = e.pointerId;
 
+      if (isSelectionModeRef.current) {
+        setIsSelectionMode(false);
+        setSelectedIds([]);
+        primaryPointerIdRef.current = null;
+        return;
+      }
+
       if (e.pointerType !== "mouse") {
         // Touch on background: store start, will pan if moved or clear selection if tapped
         backgroundTouchStartRef.current = { x: e.clientX, y: e.clientY };
@@ -668,16 +780,21 @@ export function useCanvasInteraction(
     primaryPointerIdRef.current = e.pointerId;
 
     setDraggingId(newCard.id);
+    draggingIdRef.current = newCard.id;
     setDraggingType("new-card");
+    draggingTypeRef.current = "new-card";
     setDraggedNewCard(newCard);
+    draggedNewCardRef.current = newCard;
 
     const mouseX = e.clientX / transform.scale;
     const mouseY = e.clientY / transform.scale;
 
-    setOffset({
+    const newOffset = {
       x: mouseX - newCard.x,
       y: mouseY - newCard.y,
-    });
+    };
+    setOffset(newOffset);
+    offsetRef.current = newOffset;
   };
 
   useEffect(() => {
@@ -691,12 +808,20 @@ export function useCanvasInteraction(
         return;
       }
 
+      if (e.key === "Escape") {
+        if (isSelectionModeRef.current) {
+          setIsSelectionMode(false);
+          setSelectedIds([]);
+        }
+      }
+
       if (e.key === "Delete" || e.key === "Backspace") {
         const selected = selectedIdsRef.current;
         if (selected.length > 0) {
           setCards((prev) => prev.filter((c) => !selected.includes(c.id)));
           setTracks((prev) => prev.filter((t) => !selected.includes(t.id)));
           setSelectedIds([]);
+          if (isSelectionModeRef.current) setIsSelectionMode(false);
         }
       }
 
@@ -787,5 +912,7 @@ export function useCanvasInteraction(
     startDragNewCard,
     draggedNewCard,
     setSelectedIds,
+    isSelectionMode,
+    setIsSelectionMode,
   };
 }
