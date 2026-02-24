@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
-import { ChevronLeft, X } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { Track } from "../components/Track/Track";
 import { RoleCard } from "../components/RoleCard/RoleCard";
 import { OrgHeader } from "../components/Canvas/OrgHeader";
@@ -512,41 +512,42 @@ export const CanvasPage = ({
           />
         )}
 
-        {!isSelectionMode && (
-          <Toolbar
-            ref={deleteZoneRef}
-            toolMode={toolMode}
-            setToolMode={handleToolModeChange}
-            isDragging={!!draggingId}
-            isOverDeleteZone={isOverDeleteZone}
-            onCapture={handleCapture}
-            onNextStep={handleNextStep}
-            onPrevStep={handlePrevStep}
-            stepCount={historySteps.length}
-            currentStepIndex={currentStepIndex}
-            onResetRecording={handleResetRecording}
-          />
-        )}
-
-        {isSelectionMode && (
-          <div className="absolute bottom-safe-8 left-1/2 -translate-x-1/2 z-40">
-            <div className="flex items-center gap-3 px-4 py-2 bg-slate-800 text-white rounded-full shadow-xl">
-              <span className="text-sm font-medium">
-                {selectedIds.length} cards selected
-              </span>
-              <div className="w-px h-4 bg-slate-600"></div>
-              <button
-                onClick={() => {
-                  setIsSelectionMode(false);
-                  setSelectedIds([]);
-                }}
-                className="p-1 hover:bg-slate-700 rounded-full transition-colors"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          </div>
-        )}
+        <Toolbar
+          ref={deleteZoneRef}
+          toolMode={toolMode}
+          setToolMode={handleToolModeChange}
+          isDragging={!!draggingId}
+          isOverDeleteZone={isOverDeleteZone}
+          onCapture={handleCapture}
+          onNextStep={handleNextStep}
+          onPrevStep={handlePrevStep}
+          stepCount={historySteps.length}
+          currentStepIndex={currentStepIndex}
+          onResetRecording={handleResetRecording}
+          isSelectionMode={isSelectionMode}
+          selectedIds={selectedIds}
+          onCreateGroup={() => {
+            createGroup();
+            setIsSelectionMode(false);
+            setSelectedIds([]);
+          }}
+          onDeleteSelected={() => {
+            if (selectedIds.length > 0) {
+              setCards((prev) =>
+                prev.filter((c) => !selectedIds.includes(c.id)),
+              );
+              setTracks((prev) =>
+                prev.filter((t) => !selectedIds.includes(t.id)),
+              );
+              setSelectedIds([]);
+              setIsSelectionMode(false);
+            }
+          }}
+          onClearSelection={() => {
+            setIsSelectionMode(false);
+            setSelectedIds([]);
+          }}
+        />
 
         {toolMode !== "present" && (
           <button

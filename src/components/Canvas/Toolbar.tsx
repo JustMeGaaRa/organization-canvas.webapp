@@ -9,6 +9,7 @@ import {
   Play,
   SkipBack,
   SkipForward,
+  X,
 } from "lucide-react";
 import { Toolbar as ToolbarPrimitive } from "../ui/Toolbar";
 
@@ -25,6 +26,11 @@ interface ToolbarProps {
   onResetRecording?: () => void;
   isDragging: boolean;
   isOverDeleteZone: boolean;
+  isSelectionMode?: boolean;
+  selectedIds?: string[];
+  onClearSelection?: () => void;
+  onCreateGroup?: () => void;
+  onDeleteSelected?: () => void;
 }
 
 export const Toolbar = forwardRef<HTMLDivElement, ToolbarProps>(
@@ -40,6 +46,11 @@ export const Toolbar = forwardRef<HTMLDivElement, ToolbarProps>(
       stepCount = 0,
       currentStepIndex = 0,
       onResetRecording,
+      isSelectionMode = false,
+      selectedIds = [],
+      onClearSelection,
+      onCreateGroup,
+      onDeleteSelected,
     },
     ref,
   ) => {
@@ -106,6 +117,29 @@ export const Toolbar = forwardRef<HTMLDivElement, ToolbarProps>(
                     variant="danger"
                     icon={<StopCircle size={16} />}
                     label="End"
+                  />
+                </>
+              ) : isSelectionMode ? (
+                <>
+                  <div className="flex items-center px-3 text-sm font-medium text-slate-600 whitespace-nowrap gap-2">
+                    {selectedIds.length} cards selected
+                  </div>
+                  <ToolbarPrimitive.Separator />
+                  <ToolbarPrimitive.Item
+                    onClick={onCreateGroup}
+                    icon={<Square size={16} />}
+                    label="Track"
+                  />
+                  <ToolbarPrimitive.Item
+                    onClick={onDeleteSelected}
+                    icon={<Trash2 size={16} />}
+                    label="Delete"
+                    variant="danger"
+                  />
+                  <ToolbarPrimitive.Separator />
+                  <ToolbarPrimitive.Item
+                    onClick={onClearSelection}
+                    icon={<X size={16} />}
                   />
                 </>
               ) : (
