@@ -32,7 +32,7 @@ export const SidebarPersonList = ({
             }
           }}
           className="group relative p-3 border border-slate-100 bg-white rounded-xl cursor-grab hover:border-green-200 hover:bg-green-50 flex items-center gap-3 transition-all"
-          style={{ userSelect: "none", touchAction: "pan-y" }}
+          style={{ userSelect: "none", touchAction: "none" }}
         >
           <img
             src={p.imageUrl}

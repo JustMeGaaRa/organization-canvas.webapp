@@ -145,8 +145,12 @@ export const CanvasPage = ({
   useEffect(() => {
     if (!personTouchDrag) return;
 
+    // Use passive: false to allow preventDefault if needed, and bind to window
     const handleMove = (e: PointerEvent) => {
       if (e.pointerId !== personTouchDrag.pointerId) return;
+      if (e.pointerType === "touch" && e.cancelable) {
+        e.preventDefault();
+      }
 
       // Hit-test: find card under the touch point (ghost has pointer-events:none)
       let overCardId: string | null = null;
@@ -193,7 +197,7 @@ export const CanvasPage = ({
       setPersonTouchDrag(null);
     };
 
-    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointermove", handleMove, { passive: false });
     window.addEventListener("pointerup", handleUp);
     return () => {
       window.removeEventListener("pointermove", handleMove);
@@ -566,6 +570,15 @@ export const CanvasPage = ({
       {/* Person touch-drag ghost */}
       {personTouchDrag && (
         <div
+          ref={(el) => {
+            if (el && personTouchDrag) {
+              try {
+                el.setPointerCapture(personTouchDrag.pointerId);
+              } catch {
+                // Ignore capture errors on unmount or invalid pointer ids
+              }
+            }
+          }}
           className="fixed z-[9999] pointer-events-none bg-white border-2 border-green-400 rounded-xl p-3 flex items-center gap-2 shadow-xl -translate-x-1/2 -translate-y-1/2"
           style={{ left: personTouchDrag.x, top: personTouchDrag.y }}
         >
