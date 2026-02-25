@@ -342,12 +342,11 @@ export const CanvasPage = ({
 
     const newX = (viewportW - contentW * newScale) / 2 - minX * newScale;
     const newY = (viewportH - contentH * newScale) / 2 - minY * newScale;
-
     setTransform({ x: newX, y: newY, scale: newScale });
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans overflow-hidden relative">
+    <div className="flex h-[100dvh] bg-slate-50 font-sans overflow-hidden relative">
       <main
         ref={canvasRef}
         onPointerDown={handlePointerDown}
