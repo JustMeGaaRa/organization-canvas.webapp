@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { ChevronLeft } from "lucide-react";
 import { Track } from "../components/Track/Track";
@@ -12,14 +12,12 @@ import { useCanvasData } from "../hooks/useCanvasData";
 import { useCanvasInteraction } from "../hooks/useCanvasInteraction";
 import { useBackupRestore } from "../hooks/useBackupRestore";
 import { useGroupLogic } from "../hooks/useGroupLogic";
+import { PersonDragGhost } from "../components/Canvas/PersonDragGhost";
+import { usePersonAssignmentDrag } from "../hooks/usePersonAssignmentDrag";
+import { useCanvasHistory } from "../hooks/useCanvasHistory";
+import { useFitToScreen } from "../hooks/useFitToScreen";
 import type { Role, Person, Org, RoleTemplate } from "../types";
-import {
-  GRID_SIZE,
-  CARD_WIDTH_LARGE,
-  CARD_WIDTH_SMALL,
-  CARD_HEIGHT_LARGE,
-  CARD_HEIGHT_SMALL,
-} from "../constants";
+import { GRID_SIZE } from "../constants";
 
 interface CanvasPageProps {
   orgs: Org[];
@@ -59,19 +57,9 @@ export const CanvasPage = ({
   const [toolMode, setToolMode] = useState<
     "select" | "pan" | "track" | "record" | "present"
   >("select");
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
   const [viewMode, setViewMode] = useState<"structure" | "chart">("chart");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
-  // Touch drag state for person-to-card assignment
-  const [personTouchDrag, setPersonTouchDrag] = useState<{
-    person: Person;
-    x: number;
-    y: number;
-    pointerId: number;
-    overCardId: string | null;
-  } | null>(null);
 
   // Canvas Data & Interaction Hooks
   const {
@@ -84,6 +72,35 @@ export const CanvasPage = ({
     historySteps,
     setHistorySteps,
   } = useCanvasData(currentOrgId);
+
+  const { personTouchDrag, setPersonTouchDrag } =
+    usePersonAssignmentDrag(setCards);
+
+  const {
+    currentStepIndex,
+    setCurrentStepIndex,
+    handleCapture,
+    restoreStep,
+    handleResetRecording,
+    handleNextStep,
+    handlePrevStep,
+  } = useCanvasHistory(
+    cards,
+    tracks,
+    transform,
+    setCards,
+    setTracks,
+    setTransform,
+    historySteps,
+    setHistorySteps,
+  );
+
+  const { handleFitToScreen } = useFitToScreen(
+    canvasRef,
+    cards,
+    tracks,
+    setTransform,
+  );
 
   const {
     draggingId,
@@ -141,70 +158,6 @@ export const CanvasPage = ({
     setToolMode,
   });
 
-  // Track window-level pointer events for person touch drag
-  useEffect(() => {
-    if (!personTouchDrag) return;
-
-    // Use passive: false to allow preventDefault if needed, and bind to window
-    const handleMove = (e: PointerEvent) => {
-      if (e.pointerId !== personTouchDrag.pointerId) return;
-      if (e.pointerType === "touch" && e.cancelable) {
-        e.preventDefault();
-      }
-
-      // Hit-test: find card under the touch point (ghost has pointer-events:none)
-      let overCardId: string | null = null;
-      const elements = document.elementsFromPoint(e.clientX, e.clientY);
-      for (const el of elements) {
-        const cardEl = (el as HTMLElement).closest("[data-card-id]");
-        if (cardEl) {
-          overCardId = cardEl.getAttribute("data-card-id");
-          break;
-        }
-      }
-
-      setPersonTouchDrag((prev) =>
-        prev ? { ...prev, x: e.clientX, y: e.clientY, overCardId } : null,
-      );
-    };
-
-    const handleUp = (e: PointerEvent) => {
-      if (e.pointerId !== personTouchDrag.pointerId) return;
-
-      // Hit-test: find a role card under the touch point
-      const elements = document.elementsFromPoint(e.clientX, e.clientY);
-      for (const el of elements) {
-        const cardEl = (el as HTMLElement).closest("[data-card-id]");
-        if (cardEl) {
-          const cardId = cardEl.getAttribute("data-card-id");
-          if (cardId) {
-            setCards((prev) =>
-              prev.map((c) =>
-                c.id === cardId
-                  ? {
-                      ...c,
-                      assignedPerson: personTouchDrag.person,
-                      status: "suggested" as const,
-                    }
-                  : c,
-              ),
-            );
-            break;
-          }
-        }
-      }
-
-      setPersonTouchDrag(null);
-    };
-
-    window.addEventListener("pointermove", handleMove, { passive: false });
-    window.addEventListener("pointerup", handleUp);
-    return () => {
-      window.removeEventListener("pointermove", handleMove);
-      window.removeEventListener("pointerup", handleUp);
-    };
-  }, [personTouchDrag, setCards]);
-
   const toggleCardSize = (cardId: string) => {
     setCards((prev) =>
       prev.map((c) =>
@@ -219,25 +172,6 @@ export const CanvasPage = ({
     setTracks((prev) =>
       prev.map((t) => (t.id === id ? { ...t, name: newName } : t)),
     );
-  };
-
-  const handleCapture = () => {
-    const step = {
-      timestamp: Date.now(),
-      cards,
-      tracks,
-      transform,
-    };
-    setHistorySteps((prev) => [...prev, step]);
-  };
-
-  const restoreStep = (index: number) => {
-    if (index >= 0 && index < historySteps.length) {
-      const step = historySteps[index];
-      if (step.cards) setCards(step.cards);
-      if (step.tracks) setTracks(step.tracks);
-      if (step.transform) setTransform(step.transform);
-    }
   };
 
   const handleToolModeChange = (
@@ -265,84 +199,12 @@ export const CanvasPage = ({
     setToolMode(mode);
   };
 
-  const handleResetRecording = () => {
-    const step = {
-      timestamp: Date.now(),
-      cards,
-      tracks,
-      transform,
-    };
-    setHistorySteps([step]);
-    setCurrentStepIndex(0);
-  };
-
-  const handleNextStep = () => {
-    if (currentStepIndex < historySteps.length - 1) {
-      const newIndex = currentStepIndex + 1;
-      setCurrentStepIndex(newIndex);
-      restoreStep(newIndex);
-    }
-  };
-
-  const handlePrevStep = () => {
-    if (currentStepIndex > 0) {
-      const newIndex = currentStepIndex - 1;
-      setCurrentStepIndex(newIndex);
-      restoreStep(newIndex);
-    }
-  };
-
   const handleUngroupTrack = (trackId: string) => {
     setTracks((prev) => prev.filter((t) => t.id !== trackId));
     const isSelected = selectedIds.includes(trackId);
     if (isSelected) {
       setSelectedIds((prev) => prev.filter((id) => id !== trackId));
     }
-  };
-
-  const handleFitToScreen = () => {
-    if (!canvasRef.current) return;
-    if (cards.length === 0 && tracks.length === 0) {
-      setTransform({ x: 0, y: 0, scale: 1 });
-      return;
-    }
-
-    const viewportW = canvasRef.current.clientWidth;
-    const viewportH = canvasRef.current.clientHeight;
-
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
-
-    cards.forEach((card) => {
-      const w = card.size === "small" ? CARD_WIDTH_SMALL : CARD_WIDTH_LARGE;
-      const h = card.size === "small" ? CARD_HEIGHT_SMALL : CARD_HEIGHT_LARGE;
-      minX = Math.min(minX, card.x);
-      minY = Math.min(minY, card.y);
-      maxX = Math.max(maxX, card.x + w);
-      maxY = Math.max(maxY, card.y + h);
-    });
-
-    tracks.forEach((track) => {
-      minX = Math.min(minX, track.x);
-      minY = Math.min(minY, track.y);
-      maxX = Math.max(maxX, track.x + track.width);
-      maxY = Math.max(maxY, track.y + track.height);
-    });
-
-    const contentW = maxX - minX;
-    const contentH = maxY - minY;
-    if (contentW <= 0 || contentH <= 0) return;
-
-    const PADDING = 96;
-    const scaleX = (viewportW - PADDING * 2) / contentW;
-    const scaleY = (viewportH - PADDING * 2) / contentH;
-    const newScale = Math.max(0.05, Math.min(scaleX, scaleY, 3));
-
-    const newX = (viewportW - contentW * newScale) / 2 - minX * newScale;
-    const newY = (viewportH - contentH * newScale) / 2 - minY * newScale;
-    setTransform({ x: newX, y: newY, scale: newScale });
   };
 
   return (
@@ -567,30 +429,7 @@ export const CanvasPage = ({
       </main>
 
       {/* Person touch-drag ghost */}
-      {personTouchDrag && (
-        <div
-          ref={(el) => {
-            if (el && personTouchDrag) {
-              try {
-                el.setPointerCapture(personTouchDrag.pointerId);
-              } catch {
-                // Ignore capture errors on unmount or invalid pointer ids
-              }
-            }
-          }}
-          className="fixed z-[9999] pointer-events-none bg-white border-2 border-green-400 rounded-xl p-3 flex items-center gap-2 shadow-xl -translate-x-1/2 -translate-y-1/2"
-          style={{ left: personTouchDrag.x, top: personTouchDrag.y }}
-        >
-          <img
-            src={personTouchDrag.person.imageUrl}
-            className="w-8 h-8 rounded-full"
-            alt=""
-          />
-          <span className="text-xs font-bold text-slate-700">
-            {personTouchDrag.person.name}
-          </span>
-        </div>
-      )}
+      <PersonDragGhost personTouchDrag={personTouchDrag} />
 
       <LibraryPanel
         isOpen={isSidebarOpen && toolMode !== "present"}
