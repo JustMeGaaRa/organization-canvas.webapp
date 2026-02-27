@@ -21,6 +21,7 @@ interface SidebarProps {
   children: ReactNode;
   className?: string;
   position?: "bottom" | "right";
+  isExpanded?: boolean;
 }
 
 const SidebarRoot: FC<SidebarProps> = ({
@@ -28,41 +29,58 @@ const SidebarRoot: FC<SidebarProps> = ({
   position = "right",
   children,
   className = "",
+  isExpanded = false,
+  onClose,
 }) => {
   const isBottom = position === "bottom";
 
   const variants: Variants = {
     open: {
       opacity: 1,
-      x: isBottom ? "-50%" : 0,
-      y: isBottom ? 0 : "-50%",
+      x: 0,
+      y: 0,
       scale: 1,
-      transition: { type: "spring", stiffness: 300, damping: 30, delay: 0.1 },
+      transition: { type: "spring", stiffness: 300, damping: 30 },
     },
     closed: {
       opacity: 0,
-      x: isBottom ? "calc(-50% + 50px)" : 0,
-      y: isBottom ? 0 : "calc(-50% + 50px)",
+      x: isExpanded ? 0 : isBottom ? 50 : 0,
+      y: isExpanded ? 0 : isBottom ? 0 : 50,
       scale: 0.95,
       transition: { duration: 0.2 },
     },
   };
 
+  const panelClasses = isExpanded
+    ? "inset-0 m-auto w-[90vw] max-w-4xl h-[85vh] origin-center"
+    : isBottom
+      ? "bottom-[calc(env(safe-area-inset-bottom,0px)+6rem)] inset-x-0 mx-auto w-[90vw] max-w-136 h-[450px] origin-bottom"
+      : "inset-y-0 my-auto right-24 w-80 h-[calc(100dvh-12rem)] origin-right";
+
   return (
-    <div className="fixed z-50 pointer-events-none inset-0">
+    <div className="fixed z-50 pointer-events-none inset-0 flex justify-center items-center">
+      <AnimatePresence>
+        {isOpen && isExpanded && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm pointer-events-auto"
+            onClick={onClose}
+          />
+        )}
+      </AnimatePresence>
       <AnimatePresence mode="wait">
         {isOpen && (
           <motion.div
-            key={position}
+            key="sidebar-panel"
+            layout
             initial="closed"
             animate="open"
             exit="closed"
             variants={variants}
-            className={`absolute pointer-events-auto overflow-hidden bg-white shadow-2xl border border-slate-200 flex flex-col rounded-2xl ${
-              isBottom
-                ? "bottom-[calc(env(safe-area-inset-bottom,0px)+6rem)] left-1/2 w-[90vw] max-w-136 h-[450px] origin-bottom"
-                : "top-1/2 right-24 w-80 h-[calc(100dvh-12rem)] origin-right"
-            } ${className}`}
+            className={`absolute pointer-events-auto overflow-hidden bg-white shadow-2xl border border-slate-200 flex flex-col rounded-2xl ${panelClasses} ${className}`}
           >
             {children}
           </motion.div>

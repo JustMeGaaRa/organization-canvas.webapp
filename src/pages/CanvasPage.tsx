@@ -47,7 +47,6 @@ interface CanvasPageProps {
   peopleTemplates: Person[];
   setRoleTemplates: (roles: RoleTemplate[]) => void;
   setPeopleTemplates: (people: Person[]) => void;
-  onNavigateToLibrary: () => void;
   onDeleteRoleTemplate?: (id: string) => void;
   onDeletePersonTemplate?: (id: string) => void;
 }
@@ -64,7 +63,6 @@ export const CanvasPage = ({
   peopleTemplates,
   setRoleTemplates,
   setPeopleTemplates,
-  onNavigateToLibrary,
   onDeleteRoleTemplate,
   onDeletePersonTemplate,
 }: CanvasPageProps) => {
@@ -419,7 +417,6 @@ export const CanvasPage = ({
       <LibraryPanel
         isOpen={isSidebarOpen && toolMode !== "present"}
         onToggle={setIsSidebarOpen}
-        onNavigateToLibrary={onNavigateToLibrary}
         roleTemplates={roleTemplates}
         peopleTemplates={peopleTemplates}
         onAddRoleTemplate={(name) => {
@@ -452,6 +449,18 @@ export const CanvasPage = ({
             pointerId: e.pointerId,
             overCardId: null,
           });
+        }}
+        onUpdateRoleTemplate={(id, changes) => {
+          setRoleTemplates(
+            roleTemplates.map((r) => (r.id === id ? { ...r, ...changes } : r)),
+          );
+        }}
+        onUpdatePersonTemplate={(id, changes) => {
+          setPeopleTemplates(
+            peopleTemplates.map((p) =>
+              p.id === id ? { ...p, ...changes } : p,
+            ),
+          );
         }}
         position={isLandscape ? "right" : "bottom"}
       />
