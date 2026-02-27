@@ -1,11 +1,10 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import type { RoleTemplate, Person } from "../../types";
 import { Sidebar } from "../ui/Sidebar";
 import { SidebarTabs } from "./SidebarTabs";
 import { SidebarSearch } from "./SidebarSearch";
 import { SidebarRoleList } from "./SidebarRoleList";
 import { SidebarPersonList } from "./SidebarPersonList";
-import { Settings2, ChevronRight, Download, Upload } from "lucide-react";
 
 interface LibraryPanelProps {
   isOpen: boolean;
@@ -17,15 +16,13 @@ interface LibraryPanelProps {
   onAddPersonTemplate: (name: string) => void;
   onDeleteRoleTemplate?: (id: string) => void;
   onDeletePersonTemplate?: (id: string) => void;
-  onRoleDragStart: (e: React.PointerEvent, role: RoleTemplate) => void;
-  onPersonTouchDragStart?: (
-    person: Person,
-    x: number,
-    y: number,
-    pointerId: number,
+  onLibraryDragStart: (
+    e: React.PointerEvent,
+    item:
+      | { type: "person"; data: Person }
+      | { type: "role"; data: RoleTemplate },
   ) => void;
-  onBackup: () => void;
-  onRestore: (file: File) => void;
+  position?: "bottom" | "right";
 }
 
 export const LibraryPanel = ({
@@ -38,14 +35,11 @@ export const LibraryPanel = ({
   onAddPersonTemplate,
   onDeleteRoleTemplate,
   onDeletePersonTemplate,
-  onRoleDragStart,
-  onPersonTouchDragStart,
-  onBackup,
-  onRestore,
+  onLibraryDragStart,
+  position = "right",
 }: LibraryPanelProps) => {
   const [activeTab, setActiveTab] = useState<"roles" | "people">("roles");
   const [searchQuery, setSearchQuery] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredRoles = roleTemplates.filter((r) =>
     r.role.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -74,15 +68,18 @@ export const LibraryPanel = ({
     setSearchQuery("");
   };
 
-  const handlePersonDragStart = (e: React.DragEvent, person: Person) => {
-    e.dataTransfer.setData("person", JSON.stringify(person));
+  const handlePersonDragStart = (e: React.PointerEvent, person: Person) => {
+    onLibraryDragStart(e, { type: "person", data: person });
   };
 
   return (
-    <Sidebar isOpen={isOpen} onClose={() => onToggle(false)} position="right">
+    <Sidebar
+      isOpen={isOpen}
+      onClose={() => onToggle(false)}
+      position={position}
+    >
       <Sidebar.Header>
         <Sidebar.Title>Library</Sidebar.Title>
-        <Sidebar.CloseButton onClose={() => onToggle(false)} />
       </Sidebar.Header>
 
       <SidebarTabs activeTab={activeTab} onTabChange={setActiveTab} />
@@ -93,13 +90,16 @@ export const LibraryPanel = ({
         activeTab={activeTab}
         isDuplicate={isDuplicate}
         onAdd={handleAdd}
+        onNavigateToLibrary={onNavigateToLibrary}
       />
 
       <Sidebar.Content className="p-0">
         {activeTab === "roles" ? (
           <SidebarRoleList
             roles={filteredRoles}
-            onRoleDragStart={onRoleDragStart}
+            onRoleDragStart={(e, role) =>
+              onLibraryDragStart(e, { type: "role", data: role })
+            }
             onDeleteRoleTemplate={onDeleteRoleTemplate}
           />
         ) : (
@@ -107,64 +107,9 @@ export const LibraryPanel = ({
             people={filteredPeople}
             onPersonDragStart={handlePersonDragStart}
             onDeletePersonTemplate={onDeletePersonTemplate}
-            onPersonTouchDragStart={onPersonTouchDragStart}
           />
         )}
       </Sidebar.Content>
-
-      <Sidebar.Footer className="[@media(max-width:1023px)]:hidden">
-        <div className="flex gap-2 w-full">
-          <button
-            onClick={onNavigateToLibrary}
-            className="flex-1 flex items-center justify-between px-4 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl hover:border-blue-300 hover:text-blue-600 transition-all shadow-sm group"
-            title="Manage Assets"
-          >
-            <div className="flex items-center gap-3">
-              <Settings2
-                size={16}
-                className="text-slate-400 group-hover:text-blue-500"
-              />
-              <span className="text-[10px] font-bold uppercase tracking-widest">
-                Manage Assets
-              </span>
-            </div>
-            <ChevronRight
-              size={14}
-              className="text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all"
-            />
-          </button>
-
-          <button
-            onClick={onBackup}
-            className="p-3 bg-white border border-slate-200 text-slate-700 rounded-xl hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all shadow-sm"
-            title="Backup Organization"
-          >
-            <Download size={18} />
-          </button>
-
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="p-3 bg-white border border-slate-200 text-slate-700 rounded-xl hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all shadow-sm"
-            title="Restore Organization"
-          >
-            <Upload size={18} />
-          </button>
-
-          <input
-            type="file"
-            ref={fileInputRef}
-            className="hidden"
-            accept=".json"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) {
-                onRestore(file);
-                e.target.value = "";
-              }
-            }}
-          />
-        </div>
-      </Sidebar.Footer>
     </Sidebar>
   );
 };

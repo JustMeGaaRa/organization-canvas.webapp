@@ -1,7 +1,6 @@
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { X } from "lucide-react";
 import type { FC, ReactNode } from "react";
-import { useState, useEffect } from "react";
 
 /**
  * Determines how the sidebar panel should open based on viewport width.
@@ -16,121 +15,60 @@ import { useState, useEffect } from "react";
  * Using the same breakpoint as the toolbar collapse (`max-width: 1023px` /
  * Tailwind `lg`) keeps all layout-mode changes consistent.
  */
-type SidebarLayout = "top-sheet" | "right-panel";
-
-function useSidebarLayout(): SidebarLayout {
-  const MQ = "(max-width: 1023px)";
-
-  const detect = (): SidebarLayout => {
-    if (typeof window === "undefined") return "right-panel";
-    return window.matchMedia(MQ).matches ? "top-sheet" : "right-panel";
-  };
-
-  const [layout, setLayout] = useState<SidebarLayout>(detect);
-
-  useEffect(() => {
-    const mq = window.matchMedia(MQ);
-    const update = () => setLayout(detect());
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  return layout;
-}
-
 interface SidebarProps {
   isOpen: boolean;
   onClose?: () => void;
   children: ReactNode;
-  position?: "left" | "right";
   className?: string;
+  position?: "bottom" | "right";
 }
 
 const SidebarRoot: FC<SidebarProps> = ({
   isOpen,
-  children,
   position = "right",
+  children,
   className = "",
 }) => {
-  const layout = useSidebarLayout();
+  const isBottom = position === "bottom";
 
-  const variants: Variants =
-    layout === "top-sheet"
-      ? {
-          // Slides DOWN from above the top edge
-          open: {
-            y: 0,
-            opacity: 1,
-            transition: { type: "spring", stiffness: 300, damping: 30 },
-          },
-          closed: {
-            y: "-100%",
-            opacity: 0,
-            transition: { type: "spring", stiffness: 300, damping: 30 },
-          },
-        }
-      : {
-          // Slides in from the right (or left)
-          open: {
-            x: 0,
-            opacity: 1,
-            transition: { type: "spring", stiffness: 300, damping: 30 },
-          },
-          closed: {
-            x: position === "right" ? "100%" : "-100%",
-            opacity: 0,
-            transition: { type: "spring", stiffness: 300, damping: 30 },
-          },
-        };
+  const variants: Variants = {
+    open: {
+      opacity: 1,
+      x: isBottom ? "-50%" : 0,
+      y: isBottom ? 0 : "-50%",
+      scale: 1,
+      transition: { type: "spring", stiffness: 300, damping: 30, delay: 0.1 },
+    },
+    closed: {
+      opacity: 0,
+      x: isBottom ? "calc(-50% + 50px)" : 0,
+      y: isBottom ? 0 : "calc(-50% + 50px)",
+      scale: 0.95,
+      transition: { duration: 0.2 },
+    },
+  };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          {/* ── Panel wrapper ── */}
-          <div
-            className={`fixed z-50 pointer-events-none ${
-              layout === "top-sheet" ? "inset-x-0 top-0" : "inset-0"
-            }`}
+    <div className="fixed z-50 pointer-events-none inset-0">
+      <AnimatePresence mode="wait">
+        {isOpen && (
+          <motion.div
+            key={position}
+            initial="closed"
+            animate="open"
+            exit="closed"
+            variants={variants}
+            className={`absolute pointer-events-auto overflow-hidden bg-white shadow-2xl border border-slate-200 flex flex-col rounded-2xl ${
+              isBottom
+                ? "bottom-[calc(env(safe-area-inset-bottom,0px)+6rem)] left-1/2 w-[90vw] max-w-136 h-[450px] origin-bottom"
+                : "top-1/2 right-24 w-80 h-[calc(100dvh-12rem)] origin-right"
+            } ${className}`}
           >
-            <motion.div
-              // Re-mount on layout change so the enter animation is correct
-              key={layout}
-              initial="closed"
-              animate="open"
-              exit="closed"
-              variants={variants}
-              // Safe-area top padding is applied inline so the panel content
-              // clears the iPad notch/status-bar when it slides in from above.
-              style={
-                layout === "top-sheet"
-                  ? { paddingTop: "env(safe-area-inset-top, 0px)" }
-                  : undefined
-              }
-              className={
-                layout === "top-sheet"
-                  ? // ── Top sheet (portrait touch) ──
-                    // Full-width, slides from above, canvas below stays visible.
-                    `absolute top-0 left-0 right-0 h-[55vh] rounded-b-2xl bg-white shadow-2xl border-b border-slate-200 flex flex-col pointer-events-auto overflow-hidden ${className}`
-                  : // ── Right panel (landscape touch + desktop) ──
-                    `absolute top-0 ${
-                      position === "right" ? "right-0" : "left-0"
-                    } h-[calc(100%-2rem)] m-4 rounded-2xl bg-white shadow-2xl border border-slate-200 flex flex-col w-80 pointer-events-auto overflow-hidden ${className}`
-              }
-            >
-              {children}
-
-              {/* Drag-handle pill at the BOTTOM of the top sheet */}
-              {layout === "top-sheet" && (
-                <div className="flex justify-center pb-3 pt-1 flex-shrink-0">
-                  <div className="w-10 h-1 bg-slate-300 rounded-full" />
-                </div>
-              )}
-            </motion.div>
-          </div>
-        </>
-      )}
-    </AnimatePresence>
+            {children}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 };
 

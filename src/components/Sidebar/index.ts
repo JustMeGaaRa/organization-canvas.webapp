@@ -3,6 +3,4 @@ export * from "./SidebarTabs";
 export * from "./SidebarSearch";
 export * from "./SidebarRoleList";
 export * from "./SidebarPersonList";
-export * from "./SidebarFooter";
 export * from "./SidebarHeader";
-export * from "./Sidebar";

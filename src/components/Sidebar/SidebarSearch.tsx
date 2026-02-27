@@ -1,4 +1,4 @@
-import { Search, Plus, AlertCircle } from "lucide-react";
+import { Search, Plus, AlertCircle, Settings2 } from "lucide-react";
 import { Input } from "../ui/Input";
 
 interface SidebarSearchProps {
@@ -7,6 +7,7 @@ interface SidebarSearchProps {
   activeTab: "roles" | "people";
   isDuplicate: boolean;
   onAdd: (e: React.FormEvent) => void;
+  onNavigateToLibrary?: () => void;
 }
 
 export const SidebarSearch = ({
@@ -15,10 +16,11 @@ export const SidebarSearch = ({
   activeTab,
   isDuplicate,
   onAdd,
+  onNavigateToLibrary,
 }: SidebarSearchProps) => {
   return (
-    <div className="px-6 py-4">
-      <form onSubmit={onAdd} className="relative">
+    <div className="px-6 py-4 flex gap-2 items-center">
+      <form onSubmit={onAdd} className="relative flex-1">
         <Input
           type="text"
           value={searchQuery}
@@ -44,6 +46,15 @@ export const SidebarSearch = ({
           </div>
         )}
       </form>
+      {onNavigateToLibrary && (
+        <button
+          onClick={onNavigateToLibrary}
+          title="Manage Assets"
+          className="p-2.5 bg-slate-50 border border-slate-100 text-slate-500 rounded-xl hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-all flex-shrink-0 flex items-center justify-center"
+        >
+          <Settings2 size={16} />
+        </button>
+      )}
     </div>
   );
 };

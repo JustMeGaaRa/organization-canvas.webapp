@@ -17,4 +17,10 @@
   .right-safe-6 {
     right: calc(1.5rem + env(safe-area-inset-right, 0px));
   }
+  .right-safe-14 {
+    right: calc(3.5rem + env(safe-area-inset-right, 0px));
+  }
+  .right-safe-8 {
+    right: calc(2rem + env(safe-area-inset-right, 0px));
+  }
 }

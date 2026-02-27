@@ -1,35 +1,58 @@
-import type { FC, ReactNode, ButtonHTMLAttributes } from "react";
+import {
+  forwardRef,
+  type FC,
+  type ReactNode,
+  type ButtonHTMLAttributes,
+} from "react";
 
-interface ToolbarRootProps {
+interface ToolbarRootProps extends React.HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
   className?: string;
+  orientation?: "horizontal" | "vertical";
 }
 
-const ToolbarRoot: FC<
-  ToolbarRootProps & React.RefAttributes<HTMLDivElement>
-> = ({ children, className = "", ...props }) => (
-  <div
-    className={`flex items-center p-1.5 rounded-2xl shadow-xl bg-white/90 backdrop-blur-sm border border-slate-200/60 transition-all duration-300 ${className}`}
-    {...props}
-  >
-    {children}
-  </div>
+const ToolbarRoot = forwardRef<HTMLDivElement, ToolbarRootProps>(
+  ({ children, className = "", orientation = "horizontal", ...props }, ref) => (
+    <div
+      ref={ref}
+      className={`flex items-center gap-2 ${
+        orientation === "vertical" ? "flex-col" : "flex-row"
+      } ${className}`}
+      {...props}
+    >
+      {children}
+    </div>
+  ),
 );
+ToolbarRoot.displayName = "ToolbarRoot";
 
-interface ToolbarGroupProps {
+interface ToolbarGroupProps extends React.HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
   className?: string;
+  orientation?: "horizontal" | "vertical";
 }
 
-const ToolbarGroup: FC<ToolbarGroupProps> = ({ children, className = "" }) => (
-  <div className={`flex items-center gap-1 ${className}`}>{children}</div>
+const ToolbarGroup = forwardRef<HTMLDivElement, ToolbarGroupProps>(
+  ({ children, className = "", orientation = "horizontal", ...props }, ref) => (
+    <div
+      ref={ref}
+      className={`flex items-center p-1.5 rounded-full shadow-xl bg-white/90 backdrop-blur-sm border border-slate-200/60 transition-all duration-300 gap-1 ${
+        orientation === "vertical" ? "flex-col" : "flex-row"
+      } ${className}`}
+      {...props}
+    >
+      {children}
+    </div>
+  ),
 );
+ToolbarGroup.displayName = "ToolbarGroup";
 
 interface ToolbarItemProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   isActive?: boolean;
   variant?: "default" | "danger" | "nav";
   icon?: ReactNode;
   label?: string;
+  title?: string;
 }
 
 const ToolbarItem: FC<ToolbarItemProps> = ({
@@ -37,6 +60,7 @@ const ToolbarItem: FC<ToolbarItemProps> = ({
   variant = "default",
   icon,
   label,
+  title,
   className = "",
   children,
   ...props
@@ -55,6 +79,7 @@ const ToolbarItem: FC<ToolbarItemProps> = ({
   return (
     <button
       className={`${baseStyles} ${variants[variant]} ${className} disabled:opacity-50 disabled:cursor-not-allowed`}
+      title={title}
       {...props}
     >
       {icon}
@@ -64,11 +89,26 @@ const ToolbarItem: FC<ToolbarItemProps> = ({
   );
 };
 
-const ToolbarSeparator: FC<{ className?: string }> = ({ className = "" }) => (
-  <div className={`w-px h-6 bg-slate-200 mx-1 ${className}`} />
+interface ToolbarSeparatorProps {
+  className?: string;
+  orientation?: "horizontal" | "vertical";
+}
+
+const ToolbarSeparator: FC<ToolbarSeparatorProps> = ({
+  className = "",
+  orientation = "horizontal",
+}) => (
+  <div
+    className={`${
+      orientation === "vertical"
+        ? "w-6 h-px mx-0 my-1 bg-slate-200"
+        : "w-px h-6 bg-slate-200 mx-1"
+    } ${className}`}
+  />
 );
 
 export const Toolbar = Object.assign(ToolbarRoot, {
+  Root: ToolbarRoot,
   Group: ToolbarGroup,
   Item: ToolbarItem,
   Separator: ToolbarSeparator,

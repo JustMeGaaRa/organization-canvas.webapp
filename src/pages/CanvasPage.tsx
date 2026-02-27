@@ -1,6 +1,5 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useLayoutEffect } from "react";
 import { AnimatePresence } from "framer-motion";
-import { ChevronLeft } from "lucide-react";
 import { Track } from "../components/Track/Track";
 import { RoleCard } from "../components/RoleCard/RoleCard";
 import { OrgHeader } from "../components/Canvas/OrgHeader";
@@ -12,12 +11,29 @@ import { useCanvasData } from "../hooks/useCanvasData";
 import { useCanvasInteraction } from "../hooks/useCanvasInteraction";
 import { useBackupRestore } from "../hooks/useBackupRestore";
 import { useGroupLogic } from "../hooks/useGroupLogic";
-import { PersonDragGhost } from "../components/Canvas/PersonDragGhost";
-import { usePersonAssignmentDrag } from "../hooks/usePersonAssignmentDrag";
+import { LibraryDragGhost } from "../components/Canvas/LibraryDragGhost";
+import { useLibraryDrag } from "../hooks/useLibraryDrag";
 import { useCanvasHistory } from "../hooks/useCanvasHistory";
 import { useFitToScreen } from "../hooks/useFitToScreen";
-import type { Role, Person, Org, RoleTemplate } from "../types";
+import type { Person, Org, RoleTemplate } from "../types";
 import { GRID_SIZE } from "../constants";
+
+function useIsLandscape() {
+  const [isLandscape, setIsLandscape] = useState(() =>
+    typeof window !== "undefined"
+      ? window.matchMedia("(orientation: landscape)").matches
+      : false,
+  );
+
+  useLayoutEffect(() => {
+    const mediaQuery = window.matchMedia("(orientation: landscape)");
+    const handler = (e: MediaQueryListEvent) => setIsLandscape(e.matches);
+    mediaQuery.addEventListener("change", handler);
+    return () => mediaQuery.removeEventListener("change", handler);
+  }, []);
+
+  return isLandscape;
+}
 
 interface CanvasPageProps {
   orgs: Org[];
@@ -58,8 +74,9 @@ export const CanvasPage = ({
     "select" | "pan" | "track" | "record" | "present"
   >("select");
 
-  const [viewMode, setViewMode] = useState<"structure" | "chart">("chart");
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [viewMode, setViewMode] = useState<"structure" | "chart">("structure");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const isLandscape = useIsLandscape();
 
   // Canvas Data & Interaction Hooks
   const {
@@ -73,8 +90,11 @@ export const CanvasPage = ({
     setHistorySteps,
   } = useCanvasData(currentOrgId);
 
-  const { personTouchDrag, setPersonTouchDrag } =
-    usePersonAssignmentDrag(setCards);
+  const { libraryDrag, setLibraryDrag } = useLibraryDrag(
+    setCards,
+    transform,
+    canvasRef,
+  );
 
   const {
     currentStepIndex,
@@ -115,8 +135,6 @@ export const CanvasPage = ({
     handlePointerDown,
     handleWheel,
     handleZoom,
-    startDragNewCard,
-    draggedNewCard,
     setSelectedIds,
     isSelectionMode,
     setIsSelectionMode,
@@ -234,11 +252,6 @@ export const CanvasPage = ({
             switchOrg={switchOrg}
             deleteOrg={deleteOrg}
             createNewOrg={createNewOrg}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            onOpenLibrary={() => setIsSidebarOpen((prev) => !prev)}
-            isSidebarOpen={isSidebarOpen}
-            onNavigateToLibrary={onNavigateToLibrary}
             onBackup={handleBackup}
             onRestore={handleRestore}
           />
@@ -295,7 +308,8 @@ export const CanvasPage = ({
                     draggingType === "card"
                   }
                   isPersonTouchDragOver={
-                    personTouchDrag?.overCardId === card.id
+                    libraryDrag?.item.type === "person" &&
+                    libraryDrag.overCardId === card.id
                   }
                   onPointerDown={(e: React.PointerEvent<HTMLDivElement>) =>
                     handleStartDragCard(e, card.id)
@@ -337,26 +351,6 @@ export const CanvasPage = ({
                 />
               ))}
             </AnimatePresence>
-            {draggedNewCard && (
-              <RoleCard
-                key={draggedNewCard.id}
-                roleData={draggedNewCard}
-                variant={viewMode === "chart" ? "detailed" : "simple"}
-                isDragging={true}
-                isSelected={true}
-                isDanger={
-                  isOverDeleteZone &&
-                  draggingId === draggedNewCard.id &&
-                  draggingType === "new-card"
-                }
-                onPointerDown={() => {}}
-                onPersonDrop={() => {}}
-                onApprove={() => {}}
-                onClear={() => {}}
-                onToggleSize={() => {}}
-                animate={false}
-              />
-            )}
           </div>
         </div>
 
@@ -412,24 +406,15 @@ export const CanvasPage = ({
             setIsSelectionMode(false);
             setSelectedIds([]);
           }}
+          isSidebarOpen={isSidebarOpen}
+          onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
+          utilityPosition={isLandscape ? "right" : "bottom"}
+          utilityOrientation={isLandscape ? "vertical" : "horizontal"}
         />
-
-        {toolMode !== "present" && (
-          <button
-            onClick={() => setIsSidebarOpen(true)}
-            className={`absolute top-safe-6 right-safe-6 p-3 bg-white border border-slate-200 rounded-full shadow-lg hover:bg-slate-50 z-30 transition-all duration-300 [@media(max-width:1023px)]:hidden ${
-              isSidebarOpen
-                ? "opacity-0 scale-90 pointer-events-none"
-                : "opacity-100 scale-100"
-            }`}
-          >
-            <ChevronLeft size={20} className="text-slate-600" />
-          </button>
-        )}
       </main>
 
-      {/* Person touch-drag ghost */}
-      <PersonDragGhost personTouchDrag={personTouchDrag} />
+      {/* Unified Library Drag Ghost */}
+      <LibraryDragGhost libraryDrag={libraryDrag} />
 
       <LibraryPanel
         isOpen={isSidebarOpen && toolMode !== "present"}
@@ -459,38 +444,16 @@ export const CanvasPage = ({
         }}
         onDeleteRoleTemplate={onDeleteRoleTemplate}
         onDeletePersonTemplate={onDeletePersonTemplate}
-        onBackup={handleBackup}
-        onRestore={handleRestore}
-        onRoleDragStart={(e, roleTemplate) => {
-          if (!canvasRef.current) return;
-          const rect = e.currentTarget.getBoundingClientRect();
-          const canvasRect = canvasRef.current.getBoundingClientRect();
-          const id = `${Date.now()}`;
-
-          const initialX =
-            (rect.left - canvasRect.left - transform.x) / transform.scale;
-          const initialY =
-            (rect.top - canvasRect.top - transform.y) / transform.scale;
-
-          const newCard: Role = {
-            ...roleTemplate,
-            id,
-            x: initialX,
-            y: initialY,
-            assignedPerson: undefined,
-            status: "unassigned",
-            size: "large",
-          };
-
-          startDragNewCard(e, newCard);
-          // Close the sidebar immediately so the full canvas is free for dragging
-          setIsSidebarOpen(false);
+        onLibraryDragStart={(e, item) => {
+          setLibraryDrag({
+            item,
+            x: e.clientX,
+            y: e.clientY,
+            pointerId: e.pointerId,
+            overCardId: null,
+          });
         }}
-        onPersonTouchDragStart={(person, x, y, pointerId) => {
-          setPersonTouchDrag({ person, x, y, pointerId, overCardId: null });
-          // Close the sidebar immediately so the full canvas is free for dragging
-          setIsSidebarOpen(false);
-        }}
+        position={isLandscape ? "right" : "bottom"}
       />
     </div>
   );
