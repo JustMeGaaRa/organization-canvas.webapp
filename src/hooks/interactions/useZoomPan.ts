@@ -34,24 +34,17 @@ export function useZoomPan(
 
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
-      if (e.ctrlKey || e.metaKey) {
-        if (!canvasRef.current) return;
-        e.preventDefault();
-        const canvasRect = canvasRef.current.getBoundingClientRect();
-        handleZoom(
-          -e.deltaY * 0.002,
-          e.clientX - canvasRect.left,
-          e.clientY - canvasRect.top,
-        );
-      } else {
-        setTransform((prev) => ({
-          ...prev,
-          x: prev.x - e.deltaX,
-          y: prev.y - e.deltaY,
-        }));
-      }
+      if (!canvasRef.current) return;
+      const canvasRect = canvasRef.current.getBoundingClientRect();
+
+      // Zoom by default when using the scrollwheel
+      handleZoom(
+        -e.deltaY * 0.002,
+        e.clientX - canvasRect.left,
+        e.clientY - canvasRect.top,
+      );
     },
-    [canvasRef, handleZoom, setTransform],
+    [canvasRef, handleZoom],
   );
 
   const startPan = useCallback((clientX: number, clientY: number) => {
