@@ -1,4 +1,4 @@
-import { useRef, useState, useLayoutEffect } from "react";
+import { useRef, useState, useLayoutEffect, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
 import { Track } from "../components/Track/Track";
 import { RoleCard } from "../components/RoleCard/RoleCard";
@@ -12,10 +12,13 @@ import { useCanvasInteraction } from "../hooks/useCanvasInteraction";
 import { useBackupRestore } from "../hooks/useBackupRestore";
 import { useGroupLogic } from "../hooks/useGroupLogic";
 import { LibraryDragGhost } from "../components/Canvas/LibraryDragGhost";
+import { useHistoryStore } from "../store/useHistoryStore";
 import { useLibraryDrag } from "../hooks/useLibraryDrag";
 import { useCanvasHistory } from "../hooks/useCanvasHistory";
 import { useFitToScreen } from "../hooks/useFitToScreen";
-import type { Person, Org, RoleTemplate } from "../types";
+import { useUndoRedoHistory } from "../hooks/useUndoRedoHistory";
+import { UndoRedoToolbar } from "../components/Canvas/UndoRedoToolbar";
+import type { Person, Org, RoleTemplate, Role } from "../types";
 import { GRID_SIZE } from "../constants";
 
 function useIsLandscape() {
@@ -112,6 +115,17 @@ export const CanvasPage = ({
     historySteps,
     setHistorySteps,
   );
+
+  const { undo, redo, canUndo, canRedo } = useUndoRedoHistory(
+    setCards,
+    setTracks,
+  );
+
+  useEffect(() => {
+    useHistoryStore.getState().reset();
+    useHistoryStore.getState().commitHistory(cards, tracks);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentOrgId]);
 
   const { handleFitToScreen } = useFitToScreen(
     canvasRef,
@@ -316,33 +330,37 @@ export const CanvasPage = ({
                     rid: string,
                     p: { id: string; name: string; imageUrl: string },
                   ) =>
-                    setCards((prev) =>
-                      prev.map((c) =>
+                    setCards((prev) => {
+                      const newCards = prev.map((c) =>
                         c.id === rid
-                          ? { ...c, assignedPerson: p, status: "suggested" }
+                          ? ({ ...c, assignedPerson: p, status: "suggested" } as Role)
                           : c,
-                      ),
-                    )
+                      );
+                      useHistoryStore.getState().commitHistory(newCards, tracks);
+                      return newCards;
+                    })
                   }
                   onApprove={(rid: string) =>
                     setCards((prev) =>
                       prev.map((c) =>
-                        c.id === rid ? { ...c, status: "assigned" } : c,
+                        c.id === rid ? ({ ...c, status: "assigned" } as Role) : c,
                       ),
                     )
                   }
                   onClear={(rid: string) =>
-                    setCards((prev) =>
-                      prev.map((c) =>
+                    setCards((prev) => {
+                      const newCards = prev.map((c) =>
                         c.id === rid
-                          ? {
+                          ? ({
                               ...c,
                               status: "unassigned",
                               assignedPerson: undefined,
-                            }
+                            } as Role)
                           : c,
-                      ),
-                    )
+                      );
+                      useHistoryStore.getState().commitHistory(newCards, tracks);
+                      return newCards;
+                    })
                   }
                   onToggleSize={toggleCardSize}
                   animate={toolMode === "present"}
@@ -390,9 +408,12 @@ export const CanvasPage = ({
           }}
           onDeleteSelected={() => {
             if (selectedIds.length > 0) {
-              setCards((prev) =>
-                prev.filter((c) => !selectedIds.includes(c.id)),
-              );
+              setCards((prev) => {
+                const newCards = prev.filter((c) => !selectedIds.includes(c.id));
+                const newTracks = tracks.filter((t) => !selectedIds.includes(t.id));
+                useHistoryStore.getState().commitHistory(newCards, newTracks);
+                return newCards;
+              });
               setTracks((prev) =>
                 prev.filter((t) => !selectedIds.includes(t.id)),
               );
@@ -464,6 +485,15 @@ export const CanvasPage = ({
         }}
         position={isLandscape ? "right" : "bottom"}
       />
+
+      {toolMode !== "present" && (
+        <UndoRedoToolbar
+          onUndo={undo}
+          onRedo={redo}
+          canUndo={canUndo}
+          canRedo={canRedo}
+        />
+      )}
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import type { TrackData, Role, RoleTemplate, Person } from "../types";
+import type { TrackData, Role, RoleTemplate, Person, HistoryStep } from "../types";
 
 interface UseBackupRestoreProps {
   currentOrgId: string;
@@ -8,7 +8,7 @@ interface UseBackupRestoreProps {
   roleTemplates: RoleTemplate[];
   peopleTemplates: Person[];
   transform: { x: number; y: number; scale: number };
-  historySteps: any[]; // Or specific type for history steps
+  historySteps: HistoryStep[]; // Or specific type for history steps
   setCards: React.Dispatch<React.SetStateAction<Role[]>>;
   setTracks: React.Dispatch<React.SetStateAction<TrackData[]>>;
   setRoleTemplates: (roles: RoleTemplate[]) => void;
@@ -16,7 +16,7 @@ interface UseBackupRestoreProps {
   setTransform: React.Dispatch<
     React.SetStateAction<{ x: number; y: number; scale: number }>
   >;
-  setHistorySteps: React.Dispatch<React.SetStateAction<any[]>>;
+  setHistorySteps: React.Dispatch<React.SetStateAction<HistoryStep[]>>;
   updateOrgName: (name: string) => void;
 }
 

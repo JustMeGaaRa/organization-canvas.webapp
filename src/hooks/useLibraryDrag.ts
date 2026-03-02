@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { Person, RoleTemplate, Role } from "../types";
 import { GRID_SIZE, CARD_WIDTH_LARGE, CARD_HEIGHT_LARGE } from "../constants";
+import { useHistoryStore } from "../store/useHistoryStore";
 
 export type DraggedLibraryItem =
   | { type: "person"; data: Person }
@@ -73,8 +74,8 @@ export function useLibraryDrag(
           if (cardEl) {
             const cardId = cardEl.getAttribute("data-card-id");
             if (cardId) {
-              setCards((prev) =>
-                prev.map((c) =>
+              setCards((prev) => {
+                const newCards = prev.map((c) =>
                   c.id === cardId
                     ? {
                         ...c,
@@ -82,8 +83,13 @@ export function useLibraryDrag(
                         status: "suggested" as const,
                       }
                     : c,
-                ),
-              );
+                );
+                
+                // Read current tracks from store since libdrag doesn't need them globally
+                const tracks = useHistoryStore.getState().history[useHistoryStore.getState().currentIndex]?.tracks || [];
+                useHistoryStore.getState().commitHistory(newCards, tracks);
+                return newCards;
+              });
               break;
             }
           }
@@ -117,7 +123,12 @@ export function useLibraryDrag(
               size: "large",
             };
 
-            setCards((prev) => [...prev, newCard]);
+            setCards((prev) => {
+               const newCards = [...prev, newCard];
+               const tracks = useHistoryStore.getState().history[useHistoryStore.getState().currentIndex]?.tracks || [];
+               useHistoryStore.getState().commitHistory(newCards, tracks);
+               return newCards;
+            });
           }
         }
       }

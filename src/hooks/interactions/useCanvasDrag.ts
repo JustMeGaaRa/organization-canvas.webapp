@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { Role, TrackData, Transform, Point } from "../../types";
+import { useHistoryStore } from "../../store/useHistoryStore";
 import {
   GRID_SIZE,
   TRACK_PADDING,
@@ -403,18 +404,34 @@ export function useCanvasDrag(
         if (draggingType === "card") {
           const draggedIds = Object.keys(initialPositions);
           if (draggedIds.length > 0) {
-            setCards((prev) => prev.filter((c) => !draggedIds.includes(c.id)));
+            setCards((prev) => {
+              const newCards = prev.filter((c) => !draggedIds.includes(c.id));
+              useHistoryStore.getState().commitHistory(newCards, tracksRef.current);
+              return newCards;
+            });
             setSelectedIds([]);
           } else {
-            setCards((prev) => prev.filter((c) => c.id !== draggingId));
+            setCards((prev) => {
+              const newCards = prev.filter((c) => c.id !== draggingId);
+              useHistoryStore.getState().commitHistory(newCards, tracksRef.current);
+              return newCards;
+            });
           }
         } else {
-          setTracks((prev) => prev.filter((t) => t.id !== draggingId));
+          setTracks((prev) => {
+            const newTracks = prev.filter((t) => t.id !== draggingId);
+            useHistoryStore.getState().commitHistory(cardsRef.current, newTracks);
+            return newTracks;
+          });
         }
       } else if (draggingType === "new-card") {
         const draggedNewCard = draggedNewCardRef.current;
         if (draggedNewCard && !isOverDeleteZone) {
-          setCards((prev) => [...prev, draggedNewCard]);
+          setCards((prev) => {
+             const newCards = [...prev, draggedNewCard];
+             useHistoryStore.getState().commitHistory(newCards, tracksRef.current);
+             return newCards;
+          });
         }
         setDraggedNewCard(null);
       } else if (isSelectionModeRef.current && dragStartPointRef.current) {
@@ -434,7 +451,11 @@ export function useCanvasDrag(
           }
           setSelectedIds(newSelectedIds);
           if (newSelectedIds.length === 0) setIsSelectionMode(false);
+        } else {
+            useHistoryStore.getState().commitHistory(cardsRef.current, tracksRef.current);
         }
+      } else {
+         useHistoryStore.getState().commitHistory(cardsRef.current, tracksRef.current);
       }
 
       setDraggingId(null);
@@ -451,6 +472,8 @@ export function useCanvasDrag(
       selectedIdsRef,
       isSelectionModeRef,
       dragStartPointRef,
+      cardsRef,
+      tracksRef
     ],
   );
 

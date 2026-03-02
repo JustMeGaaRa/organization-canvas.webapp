@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { Role, TrackData, Transform, Point } from "../types";
 import { GRID_SIZE } from "../constants";
+import { useHistoryStore } from "../store/useHistoryStore";
 
 import { useZoomPan } from "./interactions/useZoomPan";
 import { useSelection } from "./interactions/useSelection";
@@ -18,7 +19,7 @@ export function useCanvasInteraction(
   ) => void,
   toolMode: "select" | "pan" | "track" | "record" | "present",
   canvasRef: React.RefObject<HTMLDivElement | null>,
-  deleteZoneRef: React.RefObject<HTMLDivElement | null>,
+  deleteZoneRef: React.RefObject<HTMLDivElement | null>
 ) {
   const [isOverDeleteZone, setIsOverDeleteZone] = useState(false);
   const isOverDeleteZoneRef = useRef(isOverDeleteZone);
@@ -108,7 +109,7 @@ export function useCanvasInteraction(
     setIsSelectionMode,
     primaryPointerIdRef,
     longPressTimerRef,
-    dragStartPointRef,
+    dragStartPointRef
   );
 
   // Pointer Move Orchestration
@@ -320,8 +321,13 @@ export function useCanvasInteraction(
       if (e.key === "Delete" || e.key === "Backspace") {
         const selected = selectedIdsRef.current;
         if (selected.length > 0) {
-          setCards((prev) => prev.filter((c) => !selected.includes(c.id)));
-          setTracks((prev) => prev.filter((t) => !selected.includes(t.id)));
+          const currentCards = cardsRef.current;
+          const currentTracks = tracksRef.current;
+          const newCards = currentCards.filter((c) => !selected.includes(c.id));
+          const newTracks = currentTracks.filter((t) => !selected.includes(t.id));
+          useHistoryStore.getState().commitHistory(newCards, newTracks);
+          setCards(newCards);
+          setTracks(newTracks);
           clearSelection();
         }
       }
@@ -394,7 +400,7 @@ export function useCanvasInteraction(
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [setCards, setTracks, clearSelection, setSelectedIds]);
+  }, [setCards, setTracks, clearSelection, setSelectedIds, isSelectionModeRef, selectedIdsRef]);
 
   return {
     draggingId,

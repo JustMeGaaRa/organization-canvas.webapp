@@ -1,4 +1,5 @@
 import type { TrackData, Role } from "../types";
+import { useHistoryStore } from "../store/useHistoryStore";
 import {
   TRACK_PADDING,
   CARD_WIDTH_LARGE,
@@ -55,7 +56,11 @@ export const useGroupLogic = ({
         name: "Group",
       };
 
-      setTracks((prev) => [...prev, newTrack]);
+      setTracks((prev) => {
+        const result = [...prev, newTrack];
+        useHistoryStore.getState().commitHistory(cards, result);
+        return result;
+      });
       setSelectedIds([newTrack.id]);
       setToolMode("select");
     } else {
