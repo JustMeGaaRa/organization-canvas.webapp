@@ -91,20 +91,9 @@ export const LibraryPanel = ({
         <button
           onClick={() => setIsEditMode(!isEditMode)}
           className="p-1.5 hover:bg-slate-100 rounded-md text-slate-500 transition-colors flex items-center gap-1.5 text-sm font-medium"
+          title={isEditMode ? "Close" : "Edit Assets"}
         >
-          {isEditMode ? (
-            <>
-              <span title="Close">
-                <X size={16} />
-              </span>
-            </>
-          ) : (
-            <>
-              <span title="Edit Assets">
-                <Pencil size={16} />
-              </span>
-            </>
-          )}
+          {isEditMode ? <X size={16} /> : <Pencil size={16} />}
         </button>
       </Sidebar.Header>
 

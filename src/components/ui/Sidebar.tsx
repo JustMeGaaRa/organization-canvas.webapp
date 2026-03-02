@@ -44,8 +44,8 @@ const SidebarRoot: FC<SidebarProps> = ({
     },
     closed: {
       opacity: 0,
-      x: isExpanded ? 0 : isBottom ? 50 : 0,
-      y: isExpanded ? 0 : isBottom ? 0 : 50,
+      x: isExpanded ? 0 : isBottom ? 0 : 50,
+      y: isExpanded ? 0 : isBottom ? 50 : 0,
       scale: 0.95,
       transition: { duration: 0.2 },
     },
@@ -74,8 +74,7 @@ const SidebarRoot: FC<SidebarProps> = ({
       <AnimatePresence mode="wait">
         {isOpen && (
           <motion.div
-            key="sidebar-panel"
-            layout
+            key={isExpanded ? "sidebar-expanded" : "sidebar-collapsed"}
             initial="closed"
             animate="open"
             exit="closed"
