@@ -7,6 +7,7 @@ import { useZoomPan } from "./interactions/useZoomPan";
 import { useSelection } from "./interactions/useSelection";
 import { useTrackResize } from "./interactions/useTrackResize";
 import { useCanvasDrag } from "./interactions/useCanvasDrag";
+import { useMarqueeSelection } from "./interactions/useMarqueeSelection";
 
 export function useCanvasInteraction(
   transform: Transform,
@@ -19,7 +20,7 @@ export function useCanvasInteraction(
   ) => void,
   toolMode: "select" | "pan" | "track" | "record" | "present",
   canvasRef: React.RefObject<HTMLDivElement | null>,
-  deleteZoneRef: React.RefObject<HTMLDivElement | null>
+  deleteZoneRef: React.RefObject<HTMLDivElement | null>,
 ) {
   const [isOverDeleteZone, setIsOverDeleteZone] = useState(false);
   const isOverDeleteZoneRef = useRef(isOverDeleteZone);
@@ -109,8 +110,19 @@ export function useCanvasInteraction(
     setIsSelectionMode,
     primaryPointerIdRef,
     longPressTimerRef,
-    dragStartPointRef
+    dragStartPointRef,
   );
+
+  // 5. Marquee Selection
+  const { marquee, startMarquee, updateMarquee, stopMarquee } =
+    useMarqueeSelection(
+      transformRef,
+      canvasRef,
+      cardsRef,
+      tracksRef,
+      setSelectedIds,
+      setIsSelectionMode,
+    );
 
   // Pointer Move Orchestration
   const handlePointerMove = useCallback(
@@ -181,8 +193,14 @@ export function useCanvasInteraction(
           e.clientY - bgTouchStart.y,
         );
         if (dist > 5) {
-          startPan(e.clientX, e.clientY);
-          backgroundTouchStartRef.current = null;
+          if (toolModeRef.current === "select") {
+            clearSelection();
+            startMarquee(bgTouchStart.x, bgTouchStart.y);
+            backgroundTouchStartRef.current = null;
+          } else if (toolModeRef.current === "pan") {
+            startPan(bgTouchStart.x, bgTouchStart.y);
+            backgroundTouchStartRef.current = null;
+          }
         } else {
           return;
         }
@@ -205,6 +223,7 @@ export function useCanvasInteraction(
       }
 
       updateDrag(e.clientX, e.clientY);
+      updateMarquee(e.clientX, e.clientY);
     },
     [
       handleZoom,
@@ -215,6 +234,9 @@ export function useCanvasInteraction(
       updateDrag,
       canvasRef,
       deleteZoneRef,
+      clearSelection,
+      startMarquee,
+      updateMarquee,
     ],
   );
 
@@ -242,10 +264,24 @@ export function useCanvasInteraction(
       stopDrag(e.clientX, e.clientY, isOverDeleteZoneRef.current);
       stopResize();
       stopPan();
+      stopMarquee();
+
+      if (selectedIdsRef.current.length === 0) {
+        setIsSelectionMode(false);
+      }
+
       setIsOverDeleteZone(false);
       dragStartPointRef.current = null;
     },
-    [clearSelection, stopDrag, stopResize, stopPan],
+    [
+      clearSelection,
+      stopDrag,
+      stopResize,
+      stopPan,
+      stopMarquee,
+      selectedIdsRef,
+      setIsSelectionMode,
+    ],
   );
 
   useEffect(() => {
@@ -284,18 +320,8 @@ export function useCanvasInteraction(
       if (primaryPointerIdRef.current !== null) return;
       primaryPointerIdRef.current = e.pointerId;
 
-      if (isSelectionModeRef.current) {
-        clearSelection();
-        primaryPointerIdRef.current = null;
-        return;
-      }
-
-      if (e.pointerType !== "mouse") {
-        backgroundTouchStartRef.current = { x: e.clientX, y: e.clientY };
-        lastPanPointRef.current = { x: e.clientX, y: e.clientY };
-      } else {
-        clearSelection();
-      }
+      backgroundTouchStartRef.current = { x: e.clientX, y: e.clientY };
+      lastPanPointRef.current = { x: e.clientX, y: e.clientY };
     }
   };
 
@@ -324,7 +350,9 @@ export function useCanvasInteraction(
           const currentCards = cardsRef.current;
           const currentTracks = tracksRef.current;
           const newCards = currentCards.filter((c) => !selected.includes(c.id));
-          const newTracks = currentTracks.filter((t) => !selected.includes(t.id));
+          const newTracks = currentTracks.filter(
+            (t) => !selected.includes(t.id),
+          );
           useHistoryStore.getState().commitHistory(newCards, newTracks);
           setCards(newCards);
           setTracks(newTracks);
@@ -400,7 +428,25 @@ export function useCanvasInteraction(
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [setCards, setTracks, clearSelection, setSelectedIds, isSelectionModeRef, selectedIdsRef]);
+  }, [
+    setCards,
+    setTracks,
+    clearSelection,
+    setSelectedIds,
+    isSelectionModeRef,
+    selectedIdsRef,
+  ]);
+
+  // Disable text selection during active canvas interactions
+  useEffect(() => {
+    if (marquee || isPanning || draggingId || resizingId) {
+      document.body.style.userSelect = "none";
+      document.body.style.webkitUserSelect = "none";
+    } else {
+      document.body.style.userSelect = "";
+      document.body.style.webkitUserSelect = "";
+    }
+  }, [marquee, isPanning, draggingId, resizingId]);
 
   return {
     draggingId,
@@ -408,6 +454,7 @@ export function useCanvasInteraction(
     resizingId,
     resizingSide,
     isPanning,
+    marquee,
     isOverDeleteZone,
     selectedIds,
     handleStartDragCard,

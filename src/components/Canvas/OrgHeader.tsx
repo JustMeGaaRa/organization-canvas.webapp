@@ -60,7 +60,13 @@ export const OrgHeader = ({
               type="text"
               value={orgName}
               onChange={(e) => updateOrgName(e.target.value)}
-              className="bg-transparent border-none outline-none text-[15px] font-normal text-slate-800 p-0 focus:ring-0 w-28 md:w-36 leading-tight"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.currentTarget.blur();
+                }
+              }}
+              title={orgName}
+              className="bg-transparent border-none outline-none text-[15px] font-normal text-slate-800 p-0 focus:ring-0 w-28 md:w-36 leading-tight truncate"
               placeholder="Organization Name"
             />
           </div>

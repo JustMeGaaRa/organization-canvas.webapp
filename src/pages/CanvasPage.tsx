@@ -124,7 +124,7 @@ export const CanvasPage = ({
   useEffect(() => {
     useHistoryStore.getState().reset();
     useHistoryStore.getState().commitHistory(cards, tracks);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentOrgId]);
 
   const { handleFitToScreen } = useFitToScreen(
@@ -139,6 +139,7 @@ export const CanvasPage = ({
     draggingType,
     resizingId,
     isPanning,
+    marquee,
     isOverDeleteZone,
     selectedIds,
     handleStartDragCard,
@@ -333,17 +334,25 @@ export const CanvasPage = ({
                     setCards((prev) => {
                       const newCards = prev.map((c) =>
                         c.id === rid
-                          ? ({ ...c, assignedPerson: p, status: "suggested" } as Role)
+                          ? ({
+                              ...c,
+                              assignedPerson: p,
+                              status: "suggested",
+                            } as Role)
                           : c,
                       );
-                      useHistoryStore.getState().commitHistory(newCards, tracks);
+                      useHistoryStore
+                        .getState()
+                        .commitHistory(newCards, tracks);
                       return newCards;
                     })
                   }
                   onApprove={(rid: string) =>
                     setCards((prev) =>
                       prev.map((c) =>
-                        c.id === rid ? ({ ...c, status: "assigned" } as Role) : c,
+                        c.id === rid
+                          ? ({ ...c, status: "assigned" } as Role)
+                          : c,
                       ),
                     )
                   }
@@ -358,7 +367,9 @@ export const CanvasPage = ({
                             } as Role)
                           : c,
                       );
-                      useHistoryStore.getState().commitHistory(newCards, tracks);
+                      useHistoryStore
+                        .getState()
+                        .commitHistory(newCards, tracks);
                       return newCards;
                     })
                   }
@@ -367,6 +378,17 @@ export const CanvasPage = ({
                 />
               ))}
             </AnimatePresence>
+            {marquee && (
+              <div
+                className="absolute border border-blue-500 bg-blue-500/20 pointer-events-none z-50 rounded-sm"
+                style={{
+                  left: Math.min(marquee.startX, marquee.currentX),
+                  top: Math.min(marquee.startY, marquee.currentY),
+                  width: Math.abs(marquee.currentX - marquee.startX),
+                  height: Math.abs(marquee.currentY - marquee.startY),
+                }}
+              />
+            )}
           </div>
         </div>
 
@@ -409,8 +431,12 @@ export const CanvasPage = ({
           onDeleteSelected={() => {
             if (selectedIds.length > 0) {
               setCards((prev) => {
-                const newCards = prev.filter((c) => !selectedIds.includes(c.id));
-                const newTracks = tracks.filter((t) => !selectedIds.includes(t.id));
+                const newCards = prev.filter(
+                  (c) => !selectedIds.includes(c.id),
+                );
+                const newTracks = tracks.filter(
+                  (t) => !selectedIds.includes(t.id),
+                );
                 useHistoryStore.getState().commitHistory(newCards, newTracks);
                 return newCards;
               });
