@@ -13,7 +13,10 @@ export const Track: FC<{
   trackData: TrackData;
   isDragging: boolean;
   isResizing: boolean;
-  onPointerDown: (e: React.PointerEvent<HTMLDivElement>, trackId: string) => void;
+  onPointerDown: (
+    e: React.PointerEvent<HTMLDivElement>,
+    trackId: string,
+  ) => void;
   onResizeStart: (
     e: React.PointerEvent<HTMLDivElement>,
     trackId: string,
@@ -23,6 +26,7 @@ export const Track: FC<{
   onUngroup: (id: string) => void;
   isDanger: boolean;
   isSelected: boolean;
+  isDropTarget?: boolean;
   animate?: boolean;
 }> = ({
   trackData,
@@ -34,6 +38,7 @@ export const Track: FC<{
   onUngroup,
   isDanger,
   isSelected,
+  isDropTarget = false,
   animate = false,
 }) => {
   const { x, y, width, height } = trackData;
@@ -60,7 +65,9 @@ export const Track: FC<{
       } ${
         isDragging
           ? `shadow-xl border-blue-400 bg-blue-50/10 z-20 ${isDanger ? "border-red-500 opacity-50" : ""}`
-          : `${isSelected ? "border-blue-500 bg-blue-50/5 z-10" : "border-slate-300 bg-transparent z-0 hover:border-slate-400"}`
+          : isDropTarget
+            ? "border-blue-500 bg-blue-50/5 shadow-lg shadow-blue-200/50 z-10"
+            : `${isSelected ? "border-blue-500 bg-blue-50/5 z-10" : "border-slate-300 bg-transparent z-0 hover:border-slate-400"}`
       }`}
       style={{
         left: `${x}px`,
@@ -85,7 +92,12 @@ export const Track: FC<{
       />
 
       {(["top", "bottom", "left", "right"] as const).map((dir) => (
-        <ResizeHandle key={dir} direction={dir} isSelected={isSelected} onResizeStart={handleResize} />
+        <ResizeHandle
+          key={dir}
+          direction={dir}
+          isSelected={isSelected}
+          onResizeStart={handleResize}
+        />
       ))}
     </motion.div>
   );

@@ -1,12 +1,6 @@
 import type { TrackData, Role } from "../types";
 import { useHistoryStore } from "../store/useHistoryStore";
-import {
-  TRACK_PADDING,
-  CARD_WIDTH_LARGE,
-  CARD_WIDTH_SMALL,
-  CARD_HEIGHT_LARGE,
-  CARD_HEIGHT_SMALL,
-} from "../constants";
+import { getTrackBoundsFromCards } from "../utils/trackBounds";
 
 interface UseGroupLogicProps {
   cards: Role[];
@@ -28,30 +22,10 @@ export const useGroupLogic = ({
   const createGroup = () => {
     const selectedCards = cards.filter((c) => selectedIds.includes(c.id));
     if (selectedCards.length > 0) {
-      // Group Logic
-      let minX = Infinity;
-      let minY = Infinity;
-      let maxRight = -Infinity;
-      let maxBottom = -Infinity;
-
-      selectedCards.forEach((c) => {
-        minX = Math.min(minX, c.x);
-        minY = Math.min(minY, c.y);
-        maxRight = Math.max(
-          maxRight,
-          c.x + (c.size === "small" ? CARD_WIDTH_SMALL : CARD_WIDTH_LARGE),
-        );
-        maxBottom = Math.max(
-          maxBottom,
-          c.y + (c.size === "small" ? CARD_HEIGHT_SMALL : CARD_HEIGHT_LARGE),
-        );
-      });
+      const bounds = getTrackBoundsFromCards(selectedCards);
       const newTrack: TrackData = {
         id: `track-${Date.now()}`,
-        x: minX - TRACK_PADDING,
-        y: minY - TRACK_PADDING,
-        width: maxRight - minX + TRACK_PADDING * 2,
-        height: maxBottom - minY + TRACK_PADDING * 2,
+        ...bounds,
         containedCardIds: selectedCards.map((c) => c.id),
         name: "Group",
       };

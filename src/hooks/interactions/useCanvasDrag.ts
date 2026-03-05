@@ -3,12 +3,12 @@ import type { Role, TrackData, Transform, Point } from "../../types";
 import { useHistoryStore } from "../../store/useHistoryStore";
 import {
   GRID_SIZE,
-  TRACK_PADDING,
   CARD_WIDTH_LARGE,
   CARD_WIDTH_SMALL,
   CARD_HEIGHT_LARGE,
   CARD_HEIGHT_SMALL,
 } from "../../constants";
+import { getTrackBoundsFromCards } from "../../utils/trackBounds";
 
 export function useCanvasDrag(
   cardsRef: React.MutableRefObject<Role[]>,
@@ -31,6 +31,9 @@ export function useCanvasDrag(
   >(null);
   const [draggedNewCard, setDraggedNewCard] = useState<Role | null>(null);
   const [offset, setOffset] = useState<Point>({ x: 0, y: 0 });
+  const [dropTargetTrackId, setDropTargetTrackId] = useState<string | null>(
+    null,
+  );
 
   const draggingIdRef = useRef(draggingId);
   const draggingTypeRef = useRef(draggingType);
@@ -306,11 +309,32 @@ export function useCanvasDrag(
       if (draggingType === "new-card") {
         const draggedNewCard = draggedNewCardRef.current;
         if (draggedNewCard) {
-          setDraggedNewCard({
-            ...draggedNewCard,
-            x: newMouseX,
-            y: newMouseY,
-          });
+          const updatedCard = { ...draggedNewCard, x: newMouseX, y: newMouseY };
+          setDraggedNewCard(updatedCard);
+          // Compute hover track for new-card
+          const cw =
+            updatedCard.size === "small" ? CARD_WIDTH_SMALL : CARD_WIDTH_LARGE;
+          const ch =
+            updatedCard.size === "small"
+              ? CARD_HEIGHT_SMALL
+              : CARD_HEIGHT_LARGE;
+          const centerX = newMouseX + cw / 2;
+          const centerY = newMouseY + ch / 2;
+          const currentTracks = tracksRef.current;
+          let hoverTrack: string | null = null;
+          for (let i = currentTracks.length - 1; i >= 0; i--) {
+            const t = currentTracks[i];
+            if (
+              centerX >= t.x &&
+              centerX <= t.x + t.width &&
+              centerY >= t.y &&
+              centerY <= t.y + t.height
+            ) {
+              hoverTrack = t.id;
+              break;
+            }
+          }
+          setDropTargetTrackId(hoverTrack);
         }
         return true;
       }
@@ -341,6 +365,49 @@ export function useCanvasDrag(
             return c;
           });
           setCards(nextCards);
+
+          // Compute which track the dragged card(s) center is currently over
+          if (draggingType === "card") {
+            const movedCards = nextCards.filter((c) => initialPositions[c.id]);
+            if (movedCards.length > 0) {
+              let minX = Infinity,
+                minY = Infinity,
+                maxX = -Infinity,
+                maxY = -Infinity;
+              movedCards.forEach((c) => {
+                const cw =
+                  c.size === "small" ? CARD_WIDTH_SMALL : CARD_WIDTH_LARGE;
+                const ch =
+                  c.size === "small" ? CARD_HEIGHT_SMALL : CARD_HEIGHT_LARGE;
+                minX = Math.min(minX, c.x);
+                minY = Math.min(minY, c.y);
+                maxX = Math.max(maxX, c.x + cw);
+                maxY = Math.max(maxY, c.y + ch);
+              });
+              const centerX = (minX + maxX) / 2;
+              const centerY = (minY + maxY) / 2;
+              const currentTracks = tracksRef.current;
+              let hoverTrack: string | null = null;
+              for (let i = currentTracks.length - 1; i >= 0; i--) {
+                const t = currentTracks[i];
+                if (
+                  centerX >= t.x &&
+                  centerX <= t.x + t.width &&
+                  centerY >= t.y &&
+                  centerY <= t.y + t.height
+                ) {
+                  const containsAll = movedCards.every((c) =>
+                    t.containedCardIds?.includes(c.id),
+                  );
+                  if (!containsAll) {
+                    hoverTrack = t.id;
+                    break;
+                  }
+                }
+              }
+              setDropTargetTrackId(hoverTrack);
+            }
+          }
         }
 
         setTracks((prevTracks) => {
@@ -351,27 +418,8 @@ export function useCanvasDrag(
               );
               if (contained.length === 0) return t;
 
-              const minX = Math.min(...contained.map((c) => c.x));
-              const minY = Math.min(...contained.map((c) => c.y));
-
-              let maxRight = -Infinity;
-              let maxBottom = -Infinity;
-
-              contained.forEach((c) => {
-                const cW =
-                  c.size === "small" ? CARD_WIDTH_SMALL : CARD_WIDTH_LARGE;
-                const cH =
-                  c.size === "small" ? CARD_HEIGHT_SMALL : CARD_HEIGHT_LARGE;
-                maxRight = Math.max(maxRight, c.x + cW);
-                maxBottom = Math.max(maxBottom, c.y + cH);
-              });
-              return {
-                ...t,
-                x: minX - TRACK_PADDING,
-                y: minY - TRACK_PADDING,
-                width: maxRight - minX + TRACK_PADDING * 2,
-                height: maxBottom - minY + TRACK_PADDING * 2,
-              };
+              const bounds = getTrackBoundsFromCards(contained);
+              return { ...t, ...bounds };
             }
 
             if (initialPositions[t.id]) {
@@ -389,7 +437,7 @@ export function useCanvasDrag(
       }
       return false;
     },
-    [cardsRef, setCards, setTracks, transformRef],
+    [cardsRef, tracksRef, setCards, setTracks, transformRef],
   );
 
   const stopDrag = useCallback(
@@ -406,60 +454,161 @@ export function useCanvasDrag(
           if (draggedIds.length > 0) {
             setCards((prev) => {
               const newCards = prev.filter((c) => !draggedIds.includes(c.id));
-              useHistoryStore.getState().commitHistory(newCards, tracksRef.current);
+              useHistoryStore
+                .getState()
+                .commitHistory(newCards, tracksRef.current);
               return newCards;
             });
             setSelectedIds([]);
           } else {
             setCards((prev) => {
               const newCards = prev.filter((c) => c.id !== draggingId);
-              useHistoryStore.getState().commitHistory(newCards, tracksRef.current);
+              useHistoryStore
+                .getState()
+                .commitHistory(newCards, tracksRef.current);
               return newCards;
             });
           }
         } else {
           setTracks((prev) => {
             const newTracks = prev.filter((t) => t.id !== draggingId);
-            useHistoryStore.getState().commitHistory(cardsRef.current, newTracks);
+            useHistoryStore
+              .getState()
+              .commitHistory(cardsRef.current, newTracks);
             return newTracks;
           });
         }
-      } else if (draggingType === "new-card") {
-        const draggedNewCard = draggedNewCardRef.current;
-        if (draggedNewCard && !isOverDeleteZone) {
-          setCards((prev) => {
-             const newCards = [...prev, draggedNewCard];
-             useHistoryStore.getState().commitHistory(newCards, tracksRef.current);
-             return newCards;
-          });
-        }
-        setDraggedNewCard(null);
-      } else if (isSelectionModeRef.current && dragStartPointRef.current) {
-        // Toggle selection logic if just clicked without moving much
-        const dist = Math.hypot(
-          clientX - dragStartPointRef.current.x,
-          clientY - dragStartPointRef.current.y,
-        );
-
-        if (dist < 5) {
-          const selected = selectedIdsRef.current;
-          let newSelectedIds = selected;
-          if (selected.includes(draggingId)) {
-            newSelectedIds = selected.filter((id) => id !== draggingId);
-          } else {
-            newSelectedIds = [...selected, draggingId];
-          }
-          setSelectedIds(newSelectedIds);
-          if (newSelectedIds.length === 0) setIsSelectionMode(false);
-        } else {
-            useHistoryStore.getState().commitHistory(cardsRef.current, tracksRef.current);
-        }
       } else {
-         useHistoryStore.getState().commitHistory(cardsRef.current, tracksRef.current);
+        let targetTrackId: string | null = null;
+        let draggedCards: Role[] = [];
+
+        if (draggingType === "card") {
+          draggedCards = cardsRef.current.filter((c) =>
+            Object.keys(initialPositions).includes(c.id),
+          );
+        } else if (draggingType === "new-card" && draggedNewCardRef.current) {
+          draggedCards = [draggedNewCardRef.current];
+        }
+
+        if (draggedCards.length > 0) {
+          let minX = Infinity,
+            minY = Infinity,
+            maxX = -Infinity,
+            maxY = -Infinity;
+          draggedCards.forEach((c) => {
+            const cw = c.size === "small" ? CARD_WIDTH_SMALL : CARD_WIDTH_LARGE;
+            const ch =
+              c.size === "small" ? CARD_HEIGHT_SMALL : CARD_HEIGHT_LARGE;
+            minX = Math.min(minX, c.x);
+            minY = Math.min(minY, c.y);
+            maxX = Math.max(maxX, c.x + cw);
+            maxY = Math.max(maxY, c.y + ch);
+          });
+          const centerX = (minX + maxX) / 2;
+          const centerY = (minY + maxY) / 2;
+
+          const currentTracks = tracksRef.current;
+          for (let i = currentTracks.length - 1; i >= 0; i--) {
+            const t = currentTracks[i];
+            if (
+              centerX >= t.x &&
+              centerX <= t.x + t.width &&
+              centerY >= t.y &&
+              centerY <= t.y + t.height
+            ) {
+              const containsAll = draggedCards.every((c) =>
+                t.containedCardIds?.includes(c.id),
+              );
+              if (!containsAll) {
+                targetTrackId = t.id;
+                break;
+              }
+            }
+          }
+        }
+
+        let finalTracks = tracksRef.current;
+        let finalCards = cardsRef.current;
+
+        if (draggingType === "new-card" && draggedNewCardRef.current) {
+          finalCards = [...cardsRef.current, draggedNewCardRef.current];
+          setCards(finalCards);
+          setDraggedNewCard(null);
+        }
+
+        if (targetTrackId && draggedCards.length > 0) {
+          const draggedCardIds = draggedCards.map((c) => c.id);
+
+          finalTracks = finalTracks.map((t) => {
+            if (t.id !== targetTrackId && t.containedCardIds) {
+              const newContained = t.containedCardIds.filter(
+                (id) => !draggedCardIds.includes(id),
+              );
+              if (newContained.length !== t.containedCardIds.length) {
+                return { ...t, containedCardIds: newContained };
+              }
+            }
+            if (t.id === targetTrackId) {
+              const newContained = Array.from(
+                new Set([...(t.containedCardIds || []), ...draggedCardIds]),
+              );
+              return { ...t, containedCardIds: newContained };
+            }
+            return t;
+          });
+
+          finalTracks = finalTracks.map((t) => {
+            if (t.containedCardIds && t.containedCardIds.length > 0) {
+              const contained = finalCards.filter((c) =>
+                t.containedCardIds!.includes(c.id),
+              );
+              if (contained.length > 0) {
+                return {
+                  ...t,
+                  ...getTrackBoundsFromCards(contained),
+                };
+              } else {
+                return { ...t, containedCardIds: [] };
+              }
+            }
+            return t;
+          });
+
+          setTracks(finalTracks);
+        }
+
+        if (
+          draggingType !== "new-card" &&
+          isSelectionModeRef.current &&
+          dragStartPointRef.current
+        ) {
+          // Toggle selection logic if just clicked without moving much
+          const dist = Math.hypot(
+            clientX - dragStartPointRef.current.x,
+            clientY - dragStartPointRef.current.y,
+          );
+
+          if (dist < 5) {
+            const selected = selectedIdsRef.current;
+            let newSelectedIds = selected;
+            if (selected.includes(draggingId)) {
+              newSelectedIds = selected.filter((id) => id !== draggingId);
+            } else {
+              newSelectedIds = [...selected, draggingId];
+            }
+            setSelectedIds(newSelectedIds);
+            if (newSelectedIds.length === 0) setIsSelectionMode(false);
+          } else {
+            useHistoryStore.getState().commitHistory(finalCards, finalTracks);
+          }
+        } else {
+          useHistoryStore.getState().commitHistory(finalCards, finalTracks);
+        }
       }
 
       setDraggingId(null);
       setDraggingType(null);
+      setDropTargetTrackId(null);
       initialPositionsRef.current = {};
 
       return true;
@@ -473,7 +622,7 @@ export function useCanvasDrag(
       isSelectionModeRef,
       dragStartPointRef,
       cardsRef,
-      tracksRef
+      tracksRef,
     ],
   );
 
@@ -481,6 +630,7 @@ export function useCanvasDrag(
     draggingId,
     draggingType,
     draggedNewCard,
+    dropTargetTrackId,
     handleStartDragCard,
     handleStartDragTrack,
     startDragNewCard,

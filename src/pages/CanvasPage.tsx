@@ -142,6 +142,7 @@ export const CanvasPage = ({
     marquee,
     isOverDeleteZone,
     selectedIds,
+    dropTargetTrackId,
     handleStartDragCard,
     handleStartDragTrack,
     handleResizeStart,
@@ -294,6 +295,7 @@ export const CanvasPage = ({
                   }
                   isResizing={resizingId === track.id}
                   isSelected={selectedIds.includes(track.id)}
+                  isDropTarget={dropTargetTrackId === track.id}
                   onPointerDown={handleStartDragTrack}
                   onResizeStart={handleResizeStart}
                   onNameChange={handleTrackNameChange}
